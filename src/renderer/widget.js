@@ -29,6 +29,10 @@ function renderSpark(series) {
 
 function render(s) {
   const bal = s.balance;
+  const threshold = Number(s.config.alertThreshold) || 0;
+  const low = Boolean(threshold && bal && bal.totalBalance < threshold);
+  document.getElementById('widget').classList.toggle('low', low);
+  document.querySelector('.platform').textContent = (s.pricing && s.pricing.accountName) || 'DeepSeek';
   els.balance.textContent = bal ? fmtMoney(bal.totalBalance) : '--';
   els.todayCost.textContent = fmtMoney(s.stats.today.cost);
   els.todayTokens.textContent = fmtTokens(s.stats.today.totalTokens) + ' tokens';

@@ -16,10 +16,21 @@ function getConfigPath() {
 }
 
 const DEFAULTS = {
-  apiKey: '',
-  upstreamBase: 'https://api.deepseek.com',
+  accounts: [
+    {
+      id: 'deepseek',
+      name: 'DeepSeek',
+      baseUrl: 'https://api.deepseek.com',
+      apiKey: '',
+      balanceUrl: '{base}/user/balance',
+      balanceJsonPath: 'balance_infos[0].total_balance',
+      currency: 'CNY',
+    },
+  ],
+  selectedAccountId: 'deepseek',
   proxyPort: 8787,
   balancePollMs: 60000,
+  alertThreshold: 0,
   autoStart: false,
   widget: { x: null, y: null, width: 360, height: 148 },
 };
@@ -36,11 +47,24 @@ function loadConfig() {
   } catch {
     saved = {};
   }
-  return {
+  let cfg = {
     ...DEFAULTS,
     ...saved,
+    accounts: (saved.accounts && saved.accounts.length ? saved.accounts : DEFAULTS.accounts).map((a) => ({
+      ...DEFAULTS.accounts[0],
+      ...a,
+    })),
     widget: { ...DEFAULTS.widget, ...(saved.widget || {}) },
   };
+  // 旧版本配置迁移：顶层 apiKey/upstreamBase 并入首个账户
+  if (!saved.accounts || !saved.accounts.length) {
+    cfg.accounts[0].apiKey = saved.apiKey || cfg.accounts[0].apiKey;
+    cfg.accounts[0].baseUrl = saved.upstreamBase || cfg.accounts[0].baseUrl;
+  }
+  if (!cfg.accounts.some((a) => a.id === cfg.selectedAccountId)) {
+    cfg.selectedAccountId = cfg.accounts[0].id;
+  }
+  return cfg;
 }
 
 function saveConfig(cfg) {
@@ -54,4 +78,8 @@ function maskKey(key) {
   return key.slice(0, 3) + '****' + key.slice(-4);
 }
 
-module.exports = { loadConfig, saveConfig, maskKey, getDataDir, getConfigPath, DEFAULTS };
+function uniqueId(prefix) {
+  return `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+}
+
+module.exports = { loadConfig, saveConfig, maskKey, getDataDir, getConfigPath, DEFAULTS, uniqueId };

@@ -3,7 +3,7 @@
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
-const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, dialog } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, dialog, Notification } = require('electron');
 
 // 必须在 require('./server') 之前设置：config.js 会在加载时读取数据目录，
 // 打包版要写入系统用户目录而不是只读的 app.asar。
@@ -151,12 +151,43 @@ function registerIpc() {
     return server.snapshot();
   });
   ipcMain.handle('settings:save', async (_e, patch) => {
+    if (Array.isArray(patch.accounts)) {
+      patch.accounts = patch.accounts.map((a) => {
+        const existing = server.config.accounts.find((x) => x.id === a.id);
+        return { ...existing, ...a, apiKey: a.apiKey ? a.apiKey : existing ? existing.apiKey : '' };
+      });
+    }
     const cfg = server.updateConfig(patch);
     app.setLoginItemSettings({ openAtLogin: Boolean(cfg.autoStart), path: process.execPath });
     await server.restartProxy();
     server.rescheduleBalancePoll();
+    server.alertFired = false;
+    server.checkAlert(server.store.lastBalance);
     pushState();
     return server.snapshot().config;
+  });
+  ipcMain.handle('account:switch', async (_e, id) => {
+    await server.switchAccount(id);
+    pushState();
+    return server.snapshot().config;
+  });
+  ipcMain.handle('recharge:add', (_e, amount, note) => {
+    const entry = server.addRecharge(amount, note);
+    pushState();
+    return entry;
+  });
+  ipcMain.handle('data:export', async () => {
+    const { toCsv } = require('./server/export');
+    const rows = server.store.events.filter((e) => e.kind === 'request');
+    if (!rows.length) return { saved: false, reason: '暂无请求记录' };
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: '导出消耗记录',
+      defaultPath: `token-usage-${new Date().toISOString().slice(0, 10)}.csv`,
+      filters: [{ name: 'CSV 文件', extensions: ['csv'] }],
+    });
+    if (result.canceled || !result.filePath) return { saved: false, reason: '已取消' };
+    fs.writeFileSync(result.filePath, toCsv(rows), 'utf8');
+    return { saved: true, path: result.filePath };
   });
   ipcMain.handle('data:clear', () => {
     server.store.clear();
@@ -189,6 +220,11 @@ if (!gotLock) {
     logStartup('server created');
     server.on('event', schedulePush);
     server.on('started', schedulePush);
+    server.on('alert', (message) => {
+      if (Notification.isSupported()) {
+        new Notification({ title: 'Token消费器 · 余额预警', body: message }).show();
+      }
+    });
     try {
       await server.start();
       logStartup('server started on port ' + server.port + ', balance: ' + JSON.stringify(server.store.lastBalance));

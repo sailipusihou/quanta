@@ -12,6 +12,11 @@ html, body { background: transparent; overflow: hidden; }
   font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
   user-select: none;
 }
+#widget.low {
+  border-color: rgba(255, 92, 108, 0.45);
+  box-shadow: 0 10px 32px rgba(255, 92, 108, 0.25);
+}
+#widget.low .dot { background: var(--red, #ff5c6c); box-shadow: 0 0 8px rgba(255, 92, 108, 0.9); }
 
 .head {
   display: flex;

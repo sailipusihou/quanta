@@ -23,6 +23,9 @@
     </div>
     <div class="actions">
       <span class="updated" id="updated"></span>
+      <select id="account-select" class="account-select" title="切换平台账户"></select>
+      <button id="btn-recharge">记录充值</button>
+      <button id="btn-export">导出</button>
       <button id="btn-refresh">刷新余额</button>
       <button id="btn-help">使用说明</button>
       <button id="btn-settings">设置</button>
@@ -37,10 +40,13 @@
     <section class="row">
       <article class="card chart-card">
         <div class="card-head">
-          <h2>近 7 天</h2>
+          <h2>消耗趋势</h2>
           <div class="seg" id="chart-mode">
             <button data-mode="cost" class="active">金额</button>
             <button data-mode="tokens">Token</button>
+            <span class="seg-divider"></span>
+            <button data-range="7" class="range active">7天</button>
+            <button data-range="30">30天</button>
           </div>
         </div>
         <div class="bars" id="chart"></div>
@@ -49,6 +55,21 @@
       <article class="card">
         <div class="card-head"><h2>模型用量（近 24h）</h2></div>
         <div id="model-list"></div>
+      </article>
+    </section>
+
+    <section class="row">
+      <article class="card">
+        <div class="card-head">
+          <h2>充值记录</h2>
+          <span class="recharge-total" id="recharge-total"></span>
+        </div>
+        <div id="recharge-list" class="recharge-list"></div>
+      </article>
+
+      <article class="card">
+        <div class="card-head"><h2>余额与预警</h2></div>
+        <div class="alert-box" id="alert-box"></div>
       </article>
     </section>
 
@@ -69,6 +90,16 @@
   <div class="modal hidden" id="settings-modal">
     <div class="modal-box">
       <h2>设置</h2>
+      <h3 class="section-title">平台账户</h3>
+      <div id="account-editor"></div>
+      <div class="add-account-row">
+        <select id="account-preset">
+          <option value="deepseek">DeepSeek</option>
+          <option value="custom">OpenAI 兼容自定义</option>
+        </select>
+        <button class="ghost" id="btn-add-account">添加账户</button>
+      </div>
+      <h3 class="section-title">通用</h3>
       <label class="field">DeepSeek API Key
         <div class="key-row">
           <input type="password" id="set-key" placeholder="sk-..." autocomplete="off" />
@@ -83,6 +114,9 @@
           <input type="number" id="set-poll" min="10" max="3600" />
         </label>
       </div>
+      <label class="field">余额预警线（元，0 = 关闭）
+        <input type="number" id="set-alert" min="0" step="0.5" />
+      </label>
       <label class="check"><input type="checkbox" id="set-autostart" /> 开机自动启动</label>
       <div class="modal-actions">
         <button class="danger" id="btn-clear">清空记录</button>
@@ -91,6 +125,24 @@
         <button class="primary" id="btn-save">保存</button>
       </div>
       <p class="note">保存后会重启本地代理。API Key 仅保存在本机 <code>data/config.json</code>，不会写入代码或日志。</p>
+    </div>
+  </div>
+
+  <div class="modal hidden" id="recharge-modal">
+    <div class="modal-box small">
+      <h2>记录充值</h2>
+      <label class="field">充值金额（元）
+        <input type="number" id="recharge-amount" min="0.01" step="0.01" placeholder="例如 50" />
+      </label>
+      <label class="field">备注（可选）
+        <input type="text" id="recharge-note" maxlength="100" placeholder="例如 8月支付宝充值" />
+      </label>
+      <div class="modal-actions">
+        <span class="spacer"></span>
+        <button class="ghost" id="recharge-cancel">取消</button>
+        <button class="primary" id="recharge-save">保存</button>
+      </div>
+      <p class="note">记录后可在仪表盘查看充值总额与累计消耗估算。</p>
     </div>
   </div>
 

@@ -67,6 +67,19 @@ header {
 
 .actions { display: flex; align-items: center; gap: 8px; }
 .updated { font-size: 11px; color: var(--muted); }
+.account-select {
+  font-family: inherit;
+  font-size: 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 6px 8px;
+  outline: none;
+  cursor: pointer;
+  max-width: 150px;
+}
+.account-select:focus { border-color: var(--accent); }
 button {
   font-family: inherit;
   font-size: 13px;
@@ -108,7 +121,21 @@ main {
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 14px 16px;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+  position: relative;
+  overflow: hidden;
 }
+.stat::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--accent);
+  opacity: 0.7;
+}
+.stat.green::before { background: var(--green); }
+.stat.amber::before { background: var(--amber); }
+.stat:hover { transform: translateY(-2px); border-color: rgba(255,255,255,0.14); }
 .stat .s-label { font-size: 12px; color: var(--muted); }
 .stat .s-value { font-size: 22px; font-weight: 700; margin-top: 4px; font-variant-numeric: tabular-nums; }
 .stat .s-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
@@ -129,6 +156,14 @@ main {
 .seg { display: flex; background: var(--panel-2); border-radius: 8px; padding: 2px; }
 .seg button { border: none; background: transparent; padding: 4px 12px; font-size: 12px; border-radius: 6px; color: var(--muted); }
 .seg button.active { background: var(--accent); color: #fff; }
+.seg .seg-divider { width: 1px; background: var(--border); margin: 3px 2px; }
+.seg button.range { color: #6f7483; }
+.seg button.range.active { background: rgba(109,139,255,0.18); color: #9db4ff; }
+
+.bars.dense .bar-fill { width: 70%; }
+.bars.dense .bar-label { font-size: 8px; }
+.small-btn { padding: 3px 8px !important; font-size: 11px !important; }
+.danger-text { color: #ff8590 !important; }
 
 .bars { display: flex; align-items: flex-end; gap: 10px; height: 210px; padding-top: 8px; }
 .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
@@ -140,7 +175,9 @@ main {
   background: linear-gradient(180deg, #6d8bff, #4259d8);
   min-height: 2px;
   transition: height 0.3s ease;
+  box-shadow: 0 0 12px rgba(109, 139, 255, 0.25);
 }
+.bar-col:hover .bar-fill { filter: brightness(1.2); }
 .bar-val { font-size: 10px; color: var(--muted); margin-top: 5px; white-space: nowrap; }
 .bar-label { font-size: 10px; color: #6f7483; margin-top: 2px; }
 
@@ -151,9 +188,32 @@ main {
 .m-track { height: 6px; border-radius: 4px; background: var(--panel-2); overflow: hidden; }
 .m-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, #6d8bff, #9db4ff); }
 
+.recharge-list { display: flex; flex-direction: column; gap: 6px; max-height: 180px; overflow-y: auto; }
+.recharge-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+.recharge-row .r-amount { font-weight: 700; color: var(--green); font-variant-numeric: tabular-nums; }
+.recharge-row .r-note { color: var(--muted); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recharge-row .r-time { color: #6f7483; font-size: 11px; }
+.recharge-total { font-size: 12px; color: var(--muted); }
+.recharge-total b { color: var(--green); }
+.alert-box { font-size: 13px; line-height: 1.8; color: var(--muted); }
+.alert-box .ab-value { font-size: 26px; font-weight: 700; color: var(--green); font-variant-numeric: tabular-nums; }
+.alert-box .ab-row { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px dashed var(--border); }
+.alert-box .ab-row:last-child { border-bottom: none; }
+.alert-box.low .ab-value { color: var(--red); }
+.alert-box.low { color: var(--red); }
+
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 12px; }
 th, td { text-align: right; padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+tbody tr:hover { background: rgba(255, 255, 255, 0.025); }
 th { color: var(--muted); font-weight: 500; }
 th:first-child, td:first-child { text-align: left; }
 td.mono { font-variant-numeric: tabular-nums; }
@@ -187,7 +247,9 @@ footer {
   display: flex; flex-direction: column; gap: 14px;
 }
 .modal-box.wide { width: 560px; }
+.modal-box.small { width: 400px; }
 .modal-box h2 { font-size: 16px; }
+.section-title { font-size: 12px; color: var(--muted); font-weight: 600; margin-top: 6px; letter-spacing: 0.5px; }
 .modal-box .intro { font-size: 13px; color: var(--muted); line-height: 1.6; }
 .field { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--muted); }
 .field input {
@@ -204,6 +266,43 @@ footer {
 .key-row { display: flex; gap: 8px; }
 .key-row input { flex: 1; }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.add-account-row { display: flex; gap: 8px; }
+.add-account-row select {
+  flex: 1;
+  font-family: inherit;
+  font-size: 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 7px 10px;
+}
+.account-edit {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  background: var(--panel-2);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.account-edit .ae-head { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; }
+.account-edit .ae-head .ae-active { font-size: 10px; color: var(--green); background: rgba(47,209,137,0.12); padding: 2px 7px; border-radius: 999px; }
+.account-edit .ae-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.account-edit label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--muted); }
+.account-edit input {
+  font-family: inherit;
+  font-size: 12px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 7px;
+  padding: 6px 8px;
+  outline: none;
+}
+.account-edit input:focus { border-color: var(--accent); }
+.account-edit .ae-actions { display: flex; gap: 8px; justify-content: flex-end; }
 .check { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
 .check input { accent-color: var(--accent); }
 .modal-actions { display: flex; align-items: center; gap: 8px; margin-top: 4px; }

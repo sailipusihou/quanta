@@ -25,7 +25,9 @@ class Store extends EventEmitter {
     this.dataDir = dataDir;
     this.usagePath = path.join(dataDir, 'usage.jsonl');
     this.statePath = path.join(dataDir, 'state.json');
+    this.rechargesPath = path.join(dataDir, 'recharges.jsonl');
     this.events = [];
+    this.recharges = [];
     this.lastBalance = null;
     this.lastBalanceError = null;
     fs.mkdirSync(dataDir, { recursive: true });
@@ -52,6 +54,20 @@ class Store extends EventEmitter {
       this.lastBalance = JSON.parse(fs.readFileSync(this.statePath, 'utf8').replace(/^\uFEFF/, ''));
     } catch {
       this.lastBalance = null;
+    }
+    try {
+      const lines = fs.readFileSync(this.rechargesPath, 'utf8').split('\n').filter(Boolean);
+      this.recharges = lines
+        .map((l) => {
+          try {
+            return JSON.parse(l);
+          } catch {
+            return null;
+          }
+        })
+        .filter(Boolean);
+    } catch {
+      this.recharges = [];
     }
   }
 
@@ -85,6 +101,22 @@ class Store extends EventEmitter {
   recordBalanceError(message) {
     this.lastBalanceError = { message, fetchedAt: Date.now() };
     this.emit('event', { kind: 'balance_error', message, fetchedAt: Date.now() });
+  }
+
+  recordRecharge(entry) {
+    const e = { ts: Date.now(), ...entry };
+    this.recharges.push(e);
+    fs.appendFileSync(this.rechargesPath, JSON.stringify(e) + '\n', 'utf8');
+    this.emit('event', { kind: 'recharge', ...e });
+    return e;
+  }
+
+  listRecharges() {
+    return [...this.recharges].sort((a, b) => b.ts - a.ts);
+  }
+
+  totalRecharges() {
+    return this.recharges.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
   }
 
   stats(sinceTs) {
@@ -142,7 +174,9 @@ class Store extends EventEmitter {
   clear() {
     this.events = [];
     this.lastBalance = null;
+    this.recharges = [];
     fs.writeFileSync(this.usagePath, '', 'utf8');
+    fs.writeFileSync(this.rechargesPath, '', 'utf8');
   }
 }
 

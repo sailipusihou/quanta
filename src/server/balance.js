@@ -35,19 +35,31 @@ function requestJson(url, { apiKey, timeoutMs = 15000 }) {
   });
 }
 
-async function fetchBalance({ apiKey, upstreamBase }) {
-  const base = String(upstreamBase || '').replace(/\/+$/, '');
-  const { body } = await requestJson(`${base}/user/balance`, { apiKey });
-  const info = (body.balance_infos || [])[0] || {};
+function getPath(obj, path) {
+  if (!path) return undefined;
+  const parts = String(path).split(/\.|\[|\]/).filter(Boolean);
+  let cur = obj;
+  for (const p of parts) {
+    if (cur == null) return undefined;
+    cur = cur[p];
+  }
+  return cur;
+}
+
+async function fetchBalance(account) {
+  const base = String(account.baseUrl || '').replace(/\/+$/, '');
+  const url = String(account.balanceUrl || '{base}/user/balance').replace('{base}', base);
+  const { body } = await requestJson(url, { apiKey: account.apiKey });
+  const totalBalance = Number(getPath(body, account.balanceJsonPath));
   return {
     ok: true,
-    currency: info.currency || 'CNY',
-    isAvailable: Boolean(body.is_available),
-    totalBalance: Number(info.total_balance) || 0,
-    grantedBalance: Number(info.granted_balance) || 0,
-    toppedUpBalance: Number(info.topped_up_balance) || 0,
+    currency: account.currency || 'CNY',
+    isAvailable: body.is_available !== false,
+    totalBalance: Number.isFinite(totalBalance) ? totalBalance : 0,
+    grantedBalance: Number(getPath(body, 'balance_infos[0].granted_balance')) || 0,
+    toppedUpBalance: Number(getPath(body, 'balance_infos[0].topped_up_balance')) || 0,
     fetchedAt: Date.now(),
   };
 }
 
-module.exports = { fetchBalance, requestJson };
+module.exports = { fetchBalance, requestJson, getPath };

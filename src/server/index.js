@@ -5,7 +5,7 @@ const { Store } = require('./store');
 const { fetchBalance } = require('./balance');
 const { startProxy } = require('./proxy');
 const { defaultPerTokenCost, rateFor } = require('./pricing');
-const { getDataDir, loadConfig, saveConfig } = require('./config');
+const { getDataDir, loadConfig, saveConfig, maskKey, DEFAULTS } = require('./config');
 
 const DEFAULT_PER_TOKEN_CNY = 2.5e-6;
 
@@ -18,10 +18,28 @@ class TokenServer extends EventEmitter {
     this.proxyServer = null;
     this.pollTimer = null;
     this.polling = false;
+    this.alertFired = false;
+  }
+
+  selectedAccount() {
+    const cfg = this.config;
+    return (
+      cfg.accounts.find((a) => a.id === cfg.selectedAccountId) ||
+      cfg.accounts[0] || {
+        id: 'default',
+        name: '默认',
+        baseUrl: '',
+        apiKey: '',
+        balanceUrl: '{base}/user/balance',
+        balanceJsonPath: '',
+        currency: 'CNY',
+      }
+    );
   }
 
   async start() {
     const cfg = this.config;
+    const account = this.selectedAccount();
     let started = false;
     let lastErr = null;
     for (let attempt = 0; attempt < 10; attempt++) {
@@ -29,8 +47,8 @@ class TokenServer extends EventEmitter {
       try {
         const { server, port: usedPort } = await startProxy({
           port,
-          upstreamBase: cfg.upstreamBase,
-          apiKey: cfg.apiKey,
+          upstreamBase: account.baseUrl,
+          apiKey: account.apiKey,
           onRecord: (entry) => this.store.recordRequest(entry),
         });
         this.proxyServer = server;
@@ -57,17 +75,31 @@ class TokenServer extends EventEmitter {
     if (this.polling) return;
     this.polling = true;
     try {
-      const snapshot = await fetchBalance({
-        apiKey: this.config.apiKey,
-        upstreamBase: this.config.upstreamBase,
-      });
+      const snapshot = await fetchBalance(this.selectedAccount());
       this.store.recordBalance(snapshot);
       this.emit('balance', snapshot);
+      this.checkAlert(snapshot);
     } catch (err) {
       this.store.recordBalanceError(err.message);
       this.emit('balance_error', err.message);
     } finally {
       this.polling = false;
+    }
+  }
+
+  checkAlert(balance) {
+    const threshold = Number(this.config.alertThreshold) || 0;
+    if (!threshold || !balance) return;
+    if (balance.totalBalance < threshold) {
+      if (!this.alertFired) {
+        this.alertFired = true;
+        this.emit(
+          'alert',
+          `账户「${this.selectedAccount().name}」余额 ${balance.totalBalance.toFixed(2)} 元，已低于预警线 ${threshold} 元`
+        );
+      }
+    } else {
+      this.alertFired = false;
     }
   }
 
@@ -80,14 +112,15 @@ class TokenServer extends EventEmitter {
       this.proxyServer = null;
     }
     const cfg = this.config;
+    const account = this.selectedAccount();
     let started = false;
     for (let attempt = 0; attempt < 10; attempt++) {
       const port = cfg.proxyPort + attempt;
       try {
         const { server: srv, port: usedPort } = await startProxy({
           port,
-          upstreamBase: cfg.upstreamBase,
-          apiKey: cfg.apiKey,
+          upstreamBase: account.baseUrl,
+          apiKey: account.apiKey,
           onRecord: (entry) => this.store.recordRequest(entry),
         });
         this.proxyServer = srv;
@@ -107,6 +140,20 @@ class TokenServer extends EventEmitter {
     if (this.pollTimer) clearInterval(this.pollTimer);
     this.pollTimer = setInterval(() => this.pollBalance(), Math.max(this.config.balancePollMs, 10000));
     this.pollTimer.unref?.();
+  }
+
+  async switchAccount(id) {
+    if (!this.config.accounts.some((a) => a.id === id)) throw new Error('账户不存在');
+    this.config.selectedAccountId = id;
+    saveConfig(this.config);
+    this.alertFired = false;
+    await this.restartProxy();
+    await this.pollBalance();
+    this.emit('account_switched', id);
+  }
+
+  addRecharge(amount, note) {
+    return this.store.recordRecharge({ amount: Number(amount) || 0, note: String(note || '').slice(0, 200) });
   }
 
   estimateRemainingTokens() {
@@ -141,8 +188,11 @@ class TokenServer extends EventEmitter {
     startOfMonth.setHours(0, 0, 0, 0);
     const startOf24h = now - 24 * 3600000;
     const cfg = this.config;
+    const account = this.selectedAccount();
+    const balance = this.store.lastBalance;
+    const totalRecharges = this.store.totalRecharges();
     return {
-      balance: this.store.lastBalance,
+      balance,
       balanceError: this.store.lastBalanceError,
       estimatedTokens: this.estimateRemainingTokens(),
       stats: {
@@ -153,27 +203,37 @@ class TokenServer extends EventEmitter {
         all: this.store.stats(0),
       },
       series: {
-        days: this.store.series('day', 7),
+        days: this.store.series('day', 30),
         hours: this.store.series('hour', 24),
       },
       byModel: this.store.byModel(startOf24h),
       recent: this.store.recent(30),
+      recharges: {
+        list: this.store.listRecharges().slice(0, 20),
+        total: totalRecharges,
+        consumedEstimate: balance && totalRecharges > 0 ? Math.max(totalRecharges - balance.totalBalance, 0) : null,
+      },
       server: { running: Boolean(this.proxyServer), port: this.port },
       config: {
         proxyPort: cfg.proxyPort,
-        upstreamBase: cfg.upstreamBase,
         balancePollMs: cfg.balancePollMs,
+        alertThreshold: Number(cfg.alertThreshold) || 0,
         autoStart: cfg.autoStart,
         widget: { ...cfg.widget },
-        hasApiKey: Boolean(cfg.apiKey),
+        selectedAccountId: cfg.selectedAccountId,
+        accounts: cfg.accounts.map((a) => ({ ...a, apiKey: maskKey(a.apiKey) })),
+        hasApiKey: Boolean(account.apiKey),
       },
-      pricing: { period: rateFor(null, now).period },
+      pricing: { period: rateFor(null, now).period, accountName: account.name },
     };
   }
 
   updateConfig(patch) {
     const cfg = { ...this.config, ...patch };
     if (patch.widget) cfg.widget = { ...this.config.widget, ...patch.widget };
+    if (Array.isArray(patch.accounts)) cfg.accounts = patch.accounts;
+    if (!cfg.accounts.length) cfg.accounts = [{ ...DEFAULTS.accounts[0] }];
+    if (!cfg.accounts.some((a) => a.id === cfg.selectedAccountId)) cfg.selectedAccountId = cfg.accounts[0].id;
     this.config = cfg;
     saveConfig(cfg);
     return cfg;
