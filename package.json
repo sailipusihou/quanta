@@ -1,0 +1,15 @@
+{
+  "name": "token-consumer-dashboard",
+  "productName": "Token消费器",
+  "version": "0.1.0",
+  "description": "实时监控 DeepSeek API token 消耗与余额的桌面悬浮仪表盘",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test --test-force-exit \"tests/*.test.js\""
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^43.4.0"
+  }
+}

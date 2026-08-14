@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>Token消费器</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'" />
+  <link rel="stylesheet" href="widget.css" />
+</head>
+<body>
+  <div id="widget">
+    <div class="head">
+      <span class="dot"></span>
+      <span class="platform">DeepSeek</span>
+      <span class="spacer"></span>
+      <span class="port" id="port">代理 --</span>
+      <button id="btn-open" title="打开仪表盘">⤢</button>
+      <button id="btn-close" title="隐藏悬浮窗">×</button>
+    </div>
+    <div class="body">
+      <div class="balance">
+        <div class="label">剩余金额</div>
+        <div class="value" id="balance">--</div>
+      </div>
+      <div class="today">
+        <div class="label">今日消耗</div>
+        <div class="value" id="today-cost">--</div>
+        <div class="sub" id="today-tokens"></div>
+      </div>
+    </div>
+    <div class="foot">
+      <svg id="spark" width="130" height="26" preserveAspectRatio="none"></svg>
+      <span class="hint" id="est">估算剩余 --</span>
+    </div>
+  </div>
+  <script src="shared.js"></script>
+  <script src="widget.js"></script>
+</body>
+</html>

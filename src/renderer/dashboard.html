@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>Token消费器</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:" />
+  <link rel="stylesheet" href="dashboard.css" />
+</head>
+<body>
+  <header>
+    <div class="logo">¥</div>
+    <div class="titles">
+      <h1>Token消费器</h1>
+      <div class="badges">
+        <span class="badge">DeepSeek</span>
+        <span class="badge period" id="period-badge">平价计费</span>
+        <span class="badge warn hidden" id="key-warn">未配置 API Key</span>
+      </div>
+    </div>
+    <div class="balance-chip">
+      <div class="bc-label">剩余金额 <span class="bc-sub" id="bal-sub"></span></div>
+      <div class="bc-value" id="bal-value">--</div>
+    </div>
+    <div class="actions">
+      <span class="updated" id="updated"></span>
+      <button id="btn-refresh">刷新余额</button>
+      <button id="btn-settings">设置</button>
+    </div>
+  </header>
+
+  <div class="banner hidden" id="bal-error"></div>
+
+  <main>
+    <section class="cards" id="cards"></section>
+
+    <section class="row">
+      <article class="card chart-card">
+        <div class="card-head">
+          <h2>近 7 天</h2>
+          <div class="seg" id="chart-mode">
+            <button data-mode="cost" class="active">金额</button>
+            <button data-mode="tokens">Token</button>
+          </div>
+        </div>
+        <div class="bars" id="chart"></div>
+      </article>
+
+      <article class="card">
+        <div class="card-head"><h2>模型用量（近 24h）</h2></div>
+        <div id="model-list"></div>
+      </article>
+    </section>
+
+    <article class="card">
+      <div class="card-head"><h2>最近请求</h2></div>
+      <div class="table-wrap">
+        <table id="recent"></table>
+      </div>
+    </article>
+  </main>
+
+  <footer>
+    <span id="proxy-info"></span>
+    <span id="pricing-info"></span>
+    <span id="data-info"></span>
+  </footer>
+
+  <div class="modal hidden" id="settings-modal">
+    <div class="modal-box">
+      <h2>设置</h2>
+      <label class="field">DeepSeek API Key
+        <div class="key-row">
+          <input type="password" id="set-key" placeholder="sk-..." autocomplete="off" />
+          <button class="ghost" id="toggle-key">显示</button>
+        </div>
+      </label>
+      <div class="form-row">
+        <label class="field">代理端口
+          <input type="number" id="set-port" min="1024" max="65535" />
+        </label>
+        <label class="field">余额刷新间隔（秒）
+          <input type="number" id="set-poll" min="10" max="3600" />
+        </label>
+      </div>
+      <label class="check"><input type="checkbox" id="set-autostart" /> 开机自动启动</label>
+      <div class="modal-actions">
+        <button class="danger" id="btn-clear">清空记录</button>
+        <span class="spacer"></span>
+        <button class="ghost" id="btn-cancel">取消</button>
+        <button class="primary" id="btn-save">保存</button>
+      </div>
+      <p class="note">保存后会重启本地代理。API Key 仅保存在本机 <code>data/config.json</code>，不会写入代码或日志。</p>
+    </div>
+  </div>
+
+  <div class="toast hidden" id="toast"></div>
+
+  <script src="shared.js"></script>
+  <script src="dashboard.js"></script>
+</body>
+</html>

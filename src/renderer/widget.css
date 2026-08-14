@@ -1,0 +1,67 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { background: transparent; overflow: hidden; }
+
+#widget {
+  -webkit-app-region: drag;
+  border-radius: 14px;
+  padding: 10px 12px 8px;
+  background: rgba(16, 18, 26, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.45);
+  color: #e8eaf0;
+  font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+  user-select: none;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+.dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #2fd189;
+  box-shadow: 0 0 8px rgba(47, 209, 137, 0.8);
+}
+.platform { font-weight: 600; }
+.spacer { flex: 1; }
+.port { color: #8b90a0; font-size: 11px; }
+.head button {
+  -webkit-app-region: no-drag;
+  background: transparent;
+  border: none;
+  color: #8b90a0;
+  font-size: 13px;
+  cursor: pointer;
+  width: 22px; height: 22px;
+  border-radius: 6px;
+  line-height: 1;
+}
+.head button:hover { background: rgba(255,255,255,0.08); color: #fff; }
+
+.body {
+  display: flex;
+  align-items: flex-end;
+  gap: 18px;
+  margin-top: 8px;
+}
+.balance .label, .today .label { font-size: 11px; color: #8b90a0; }
+.balance .value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.5px;
+  font-variant-numeric: tabular-nums;
+}
+.today .value { font-size: 16px; font-weight: 600; margin-top: 2px; color: #9db4ff; }
+.today .sub { font-size: 10px; color: #6f7483; margin-top: 1px; }
+
+.foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+#spark { flex: 1; height: 24px; }
+.hint { font-size: 10px; color: #6f7483; white-space: nowrap; }
