@@ -12,23 +12,23 @@
     <div class="titles">
       <h1>Token消费器</h1>
       <div class="badges">
-        <span class="badge">DeepSeek</span>
-        <span class="badge period" id="period-badge">平价计费</span>
-        <span class="badge warn hidden" id="key-warn">未配置 API Key</span>
+        <span class="badge" id="account-badge">DeepSeek</span>
+        <span class="badge period" id="period-badge" data-i18n="periodFlat">平价计费</span>
+        <span class="badge warn hidden" id="key-warn" data-i18n="noKey">未配置 API Key</span>
       </div>
     </div>
     <div class="balance-chip">
-      <div class="bc-label">剩余金额 <span class="bc-sub" id="bal-sub"></span></div>
+      <div class="bc-label"><span data-i18n="balanceLeft">剩余金额</span> <span class="bc-sub" id="bal-sub"></span></div>
       <div class="bc-value" id="bal-value">--</div>
     </div>
     <div class="actions">
       <span class="updated" id="updated"></span>
-      <select id="account-select" class="account-select" title="切换平台账户"></select>
-      <button id="btn-recharge">记录充值</button>
-      <button id="btn-export">导出</button>
-      <button id="btn-refresh">刷新余额</button>
-      <button id="btn-help">使用说明</button>
-      <button id="btn-settings">设置</button>
+      <select id="account-select" class="account-select" title="Switch account"></select>
+      <button id="btn-recharge" data-i18n="recordRecharge">记录充值</button>
+      <button id="btn-export" data-i18n="export">导出</button>
+      <button id="btn-refresh" data-i18n="refresh">刷新余额</button>
+      <button id="btn-help" data-i18n="help">使用说明</button>
+      <button id="btn-settings" data-i18n="settings">设置</button>
     </div>
   </header>
 
@@ -40,20 +40,20 @@
     <section class="row">
       <article class="card chart-card">
         <div class="card-head">
-          <h2>消耗趋势</h2>
+          <h2 data-i18n="trend">消耗趋势</h2>
           <div class="seg" id="chart-mode">
-            <button data-mode="cost" class="active">金额</button>
-            <button data-mode="tokens">Token</button>
+            <button data-mode="cost" class="active" data-i18n="cost">金额</button>
+            <button data-mode="tokens" data-i18n="tokens">Token</button>
             <span class="seg-divider"></span>
-            <button data-range="7" class="range active">7天</button>
-            <button data-range="30">30天</button>
+            <button data-range="7" class="range active" data-i18n="days7">7天</button>
+            <button data-range="30" class="range" data-i18n="days30">30天</button>
           </div>
         </div>
         <div class="bars" id="chart"></div>
       </article>
 
       <article class="card">
-        <div class="card-head"><h2>模型用量（近 24h）</h2></div>
+        <div class="card-head"><h2 data-i18n="model24h">模型用量（近 24h）</h2></div>
         <div id="model-list"></div>
       </article>
     </section>
@@ -61,20 +61,23 @@
     <section class="row">
       <article class="card">
         <div class="card-head">
-          <h2>充值记录</h2>
+          <h2 data-i18n="rechargeRecords">充值记录</h2>
           <span class="recharge-total" id="recharge-total"></span>
         </div>
         <div id="recharge-list" class="recharge-list"></div>
       </article>
 
       <article class="card">
-        <div class="card-head"><h2>余额与预警</h2></div>
+        <div class="card-head"><h2 data-i18n="balanceAlert">余额与预警</h2></div>
         <div class="alert-box" id="alert-box"></div>
       </article>
     </section>
 
     <article class="card">
-      <div class="card-head"><h2>最近请求</h2></div>
+      <div class="card-head">
+        <h2 data-i18n="recent">最近请求</h2>
+        <div class="tag-chips" id="tag-chips"></div>
+      </div>
       <div class="table-wrap">
         <table id="recent"></table>
       </div>
@@ -88,70 +91,100 @@
   </footer>
 
   <div class="modal hidden" id="settings-modal">
-    <div class="modal-box">
-      <h2>设置</h2>
-      <h3 class="section-title">平台账户</h3>
+    <div class="modal-box wide">
+      <h2 data-i18n="settingsTitle">设置</h2>
+      <h3 class="section-title" data-i18n="accounts">平台账户</h3>
       <div id="account-editor"></div>
       <div class="add-account-row">
         <select id="account-preset">
           <option value="deepseek">DeepSeek</option>
-          <option value="custom">OpenAI 兼容自定义</option>
+          <option value="custom" data-i18n="customName">自定义平台</option>
         </select>
-        <button class="ghost" id="btn-add-account">添加账户</button>
+        <button class="ghost" id="btn-add-account" data-i18n="addAccount">添加账户</button>
       </div>
-      <h3 class="section-title">通用</h3>
-      <label class="field">DeepSeek API Key
+      <h3 class="section-title" data-i18n="general">通用</h3>
+      <label class="field"><span data-i18n="apiKey">DeepSeek API Key</span>
         <div class="key-row">
           <input type="password" id="set-key" placeholder="sk-..." autocomplete="off" />
           <button class="ghost" id="toggle-key">显示</button>
         </div>
       </label>
       <div class="form-row">
-        <label class="field">代理端口
+        <label class="field"><span data-i18n="port">代理端口</span>
           <input type="number" id="set-port" min="1024" max="65535" />
         </label>
-        <label class="field">余额刷新间隔（秒）
+        <label class="field"><span data-i18n="pollSec">余额刷新间隔（秒）</span>
           <input type="number" id="set-poll" min="10" max="3600" />
         </label>
       </div>
-      <label class="field">余额预警线（元，0 = 关闭）
-        <input type="number" id="set-alert" min="0" step="0.5" />
-      </label>
-      <label class="check"><input type="checkbox" id="set-autostart" /> 开机自动启动</label>
-      <div class="modal-actions">
-        <button class="danger" id="btn-clear">清空记录</button>
-        <span class="spacer"></span>
-        <button class="ghost" id="btn-cancel">取消</button>
-        <button class="primary" id="btn-save">保存</button>
+      <div class="form-row">
+        <label class="field"><span data-i18n="alertThreshold">余额预警线（元，0 = 关闭）</span>
+          <input type="number" id="set-alert" min="0" step="0.5" />
+        </label>
+        <label class="field"><span data-i18n="requestNotify">请求桌面通知</span>
+          <select id="set-notify">
+            <option value="off" data-i18n="notifyOff">关闭</option>
+            <option value="error" data-i18n="notifyError">仅错误</option>
+            <option value="all" data-i18n="notifyAll">全部</option>
+          </select>
+        </label>
       </div>
-      <p class="note">保存后会重启本地代理。API Key 仅保存在本机 <code>data/config.json</code>，不会写入代码或日志。</p>
+      <div class="form-row">
+        <label class="field"><span data-i18n="language">界面语言</span>
+          <select id="set-lang">
+            <option value="zh" data-i18n="langZh">中文</option>
+            <option value="en" data-i18n="langEn">English</option>
+          </select>
+        </label>
+        <label class="field"><span data-i18n="updateFeed">更新源 URL（JSON：{version,url}，或 GitHub Releases API 地址）</span>
+          <input type="text" id="set-update-feed" placeholder="https://..." />
+        </label>
+      </div>
+      <div class="update-row">
+        <button class="ghost" id="btn-check-update" data-i18n="updateCheck">检查更新</button>
+        <span class="update-result" id="update-result"></span>
+      </div>
+      <h3 class="section-title" data-i18n="tagRules">请求标签规则</h3>
+      <div id="tag-rule-editor"></div>
+      <div class="add-account-row">
+        <span class="tag-hint" data-i18n="tagHint">客户端也可通过请求头 X-Token-Tag 直接指定标签</span>
+        <button class="ghost" id="btn-add-rule" data-i18n="addRule">添加规则</button>
+      </div>
+      <label class="check"><input type="checkbox" id="set-autostart" /> <span data-i18n="autoStart">开机自动启动</span></label>
+      <div class="modal-actions">
+        <button class="danger" id="btn-clear" data-i18n="clearData">清空记录</button>
+        <span class="spacer"></span>
+        <button class="ghost" id="btn-cancel" data-i18n="cancel">取消</button>
+        <button class="primary" id="btn-save" data-i18n="save">保存</button>
+      </div>
+      <p class="note" data-i18n="settingsNote">保存后会重启本地代理。API Key 仅保存在本机 data/config.json，不会写入代码或日志。</p>
     </div>
   </div>
 
   <div class="modal hidden" id="recharge-modal">
     <div class="modal-box small">
-      <h2>记录充值</h2>
-      <label class="field">充值金额（元）
-        <input type="number" id="recharge-amount" min="0.01" step="0.01" placeholder="例如 50" />
+      <h2 data-i18n="rechargeTitle">记录充值</h2>
+      <label class="field"><span data-i18n="rechargeAmount">充值金额（元）</span>
+        <input type="number" id="recharge-amount" min="0.01" step="0.01" placeholder="50" />
       </label>
-      <label class="field">备注（可选）
-        <input type="text" id="recharge-note" maxlength="100" placeholder="例如 8月支付宝充值" />
+      <label class="field"><span data-i18n="rechargeNote">备注（可选）</span>
+        <input type="text" id="recharge-note" maxlength="100" data-i18n-placeholder="rechargeNotePlaceholder" />
       </label>
       <div class="modal-actions">
         <span class="spacer"></span>
-        <button class="ghost" id="recharge-cancel">取消</button>
-        <button class="primary" id="recharge-save">保存</button>
+        <button class="ghost" id="recharge-cancel" data-i18n="cancel">取消</button>
+        <button class="primary" id="recharge-save" data-i18n="save">保存</button>
       </div>
-      <p class="note">记录后可在仪表盘查看充值总额与累计消耗估算。</p>
+      <p class="note" data-i18n="rechargeSaveNote">记录后可在仪表盘查看充值总额与累计消耗估算。</p>
     </div>
   </div>
 
   <div class="modal hidden" id="onboard-modal">
     <div class="modal-box">
       <div class="logo lg">¥</div>
-      <h2>欢迎使用 Token消费器</h2>
-      <p class="intro">填入你的 DeepSeek API Key，即可看到剩余金额；把客户端指向本地代理后，还能看到每一次调用的 token 消耗。</p>
-      <label class="field">DeepSeek API Key
+      <h2 data-i18n="onboardTitle">欢迎使用 Token消费器</h2>
+      <p class="intro" data-i18n="onboardIntro">填入你的 DeepSeek API Key，即可看到剩余金额；把客户端指向本地代理后，还能看到每一次调用的 token 消耗。</p>
+      <label class="field"><span data-i18n="apiKey">DeepSeek API Key</span>
         <div class="key-row">
           <input type="password" id="onboard-key" placeholder="sk-..." autocomplete="off" />
           <button class="ghost" id="onboard-toggle">显示</button>
@@ -159,26 +192,26 @@
       </label>
       <p class="field-error hidden" id="onboard-error"></p>
       <div class="modal-actions">
-        <button class="ghost" id="onboard-skip">跳过</button>
+        <button class="ghost" id="onboard-skip" data-i18n="onboardSkip">跳过</button>
         <span class="spacer"></span>
-        <button class="primary" id="onboard-save">保存并验证</button>
+        <button class="primary" id="onboard-save" data-i18n="onboardSave">保存并验证</button>
       </div>
-      <p class="note">Key 仅保存在本机 <code>data/config.json</code>，不会上传到任何服务器。</p>
+      <p class="note" data-i18n="settingsNote">保存后会重启本地代理。API Key 仅保存在本机 data/config.json，不会写入代码或日志。</p>
     </div>
   </div>
 
   <div class="modal hidden" id="help-modal">
     <div class="modal-box wide">
-      <h2>使用说明</h2>
+      <h2 data-i18n="helpTitle">使用说明</h2>
       <ol class="help">
-        <li><b>填写 API Key</b>：在「设置」里填入你的 DeepSeek API Key，保存后自动显示剩余金额。</li>
-        <li><b>指向本地代理</b>：把 ChatBox、Cherry Studio、NextChat、Claude Code 等客户端的 Base URL 填为 <code>http://127.0.0.1:8787</code>（API Key 随便填，实际使用本软件里保存的 Key）。</li>
-        <li><b>实时查看</b>：悬浮小窗显示余额与今日消耗，仪表盘显示每一次请求的 token 明细。</li>
-        <li>未走代理的调用（DeepSeek 网页端、官方 App、直接连 api.deepseek.com 的代码）只能看到余额变化，看不到单次明细。</li>
+        <li data-i18n="help1"></li>
+        <li data-i18n="help2"></li>
+        <li data-i18n="help3"></li>
+        <li data-i18n="help4"></li>
       </ol>
       <div class="modal-actions">
         <span class="spacer"></span>
-        <button class="primary" id="help-close">知道了</button>
+        <button class="primary" id="help-close" data-i18n="gotIt">知道了</button>
       </div>
     </div>
   </div>
@@ -186,6 +219,7 @@
   <div class="toast hidden" id="toast"></div>
 
   <script src="shared.js"></script>
+  <script src="i18n.js"></script>
   <script src="dashboard.js"></script>
 </body>
 </html>

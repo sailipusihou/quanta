@@ -10,29 +10,30 @@
   <div id="widget">
     <div class="head">
       <span class="dot"></span>
-      <span class="platform">DeepSeek</span>
+      <span class="platform" id="platform">DeepSeek</span>
       <span class="spacer"></span>
-      <span class="port" id="port">代理 --</span>
-      <button id="btn-open" title="打开仪表盘">⤢</button>
-      <button id="btn-close" title="隐藏悬浮窗">×</button>
+      <span class="port" id="port">--</span>
+      <button id="btn-open" data-i18n-title="widgetOpen">⤢</button>
+      <button id="btn-close" data-i18n-title="widgetHide">×</button>
     </div>
     <div class="body">
       <div class="balance">
-        <div class="label">剩余金额</div>
+        <div class="label" data-i18n="widgetBalance">剩余金额</div>
         <div class="value" id="balance">--</div>
       </div>
       <div class="today">
-        <div class="label">今日消耗</div>
+        <div class="label" data-i18n="widgetToday">今日消耗</div>
         <div class="value" id="today-cost">--</div>
         <div class="sub" id="today-tokens"></div>
       </div>
     </div>
     <div class="foot">
       <svg id="spark" width="130" height="26" preserveAspectRatio="none"></svg>
-      <span class="hint" id="est">估算剩余 --</span>
+      <span class="hint" id="est">--</span>
     </div>
   </div>
   <script src="shared.js"></script>
+  <script src="i18n.js"></script>
   <script src="widget.js"></script>
 </body>
 </html>

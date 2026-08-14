@@ -4,10 +4,13 @@ let state = null;
 let chartMode = 'cost';
 let chartRange = 7;
 let onboardSkipped = false;
+let tagFilter = 'all';
 let editorAccounts = [];
+let editorTagRules = [];
 
 const $ = (id) => document.getElementById(id);
 const els = {
+  accountBadge: $('account-badge'),
   balValue: $('bal-value'),
   balSub: $('bal-sub'),
   updated: $('updated'),
@@ -18,6 +21,7 @@ const els = {
   chart: $('chart'),
   modelList: $('model-list'),
   recent: $('recent'),
+  tagChips: $('tag-chips'),
   rechargeList: $('recharge-list'),
   rechargeTotal: $('recharge-total'),
   alertBox: $('alert-box'),
@@ -32,7 +36,7 @@ function toast(msg) {
   els.toast.textContent = msg;
   els.toast.classList.remove('hidden');
   clearTimeout(toast._t);
-  toast._t = setTimeout(() => els.toast.classList.add('hidden'), 2600);
+  toast._t = setTimeout(() => els.toast.classList.add('hidden'), 3000);
 }
 
 function statCard(label, value, sub, cls) {
@@ -44,13 +48,13 @@ function statCard(label, value, sub, cls) {
 }
 
 function renderCards(s) {
-  const t = s.stats.today;
+  const td = s.stats.today;
   const m = s.stats.month;
   els.cards.innerHTML =
-    statCard('今日 Token', fmtTokens(t.totalTokens), `${t.requests} 次请求 · 缓存命中 ${fmtTokens(t.cacheHit)}`, 'accent') +
-    statCard('今日金额', fmtMoney(t.cost), `输出 ${fmtTokens(t.completionTokens)} · 输入 ${fmtTokens(t.promptTokens)}`) +
-    statCard('本月金额', fmtMoney(m.cost), `${m.requests} 次请求`) +
-    statCard('估算剩余 Token', s.estimatedTokens != null ? fmtTokens(s.estimatedTokens) : '--', '按近期平均单价估算', 'green');
+    statCard(t('todayToken'), fmtTokens(td.totalTokens), `${td.requests} ${t('requests')} · ${t('cacheHit')} ${fmtTokens(td.cacheHit)}`, 'accent') +
+    statCard(t('todayCost'), fmtMoney(td.cost), `${t('output')} ${fmtTokens(td.completionTokens)} · ${t('input')} ${fmtTokens(td.promptTokens)}`) +
+    statCard(t('monthCost'), fmtMoney(m.cost), `${m.requests} ${t('requests')}`) +
+    statCard(t('estTokens'), s.estimatedTokens != null ? fmtTokens(s.estimatedTokens) : '--', t('estHint'), 'green');
 }
 
 function renderChart(s) {
@@ -68,7 +72,7 @@ function renderChart(s) {
       return `<div class="bar-col" title="${fmt(values[i])}">
         <div class="bar-track"><div class="bar-fill" style="height:${h}%;${today ? 'background:linear-gradient(180deg,#2fd189,#1c9e6b)' : ''}"></div></div>
         <div class="bar-val">${fmt(values[i])}</div>
-        ${showLabel ? `<div class="bar-label">${today ? '今天' : fmtShortDate(d.start)}</div>` : ''}
+        ${showLabel ? `<div class="bar-label">${today ? t('today') : fmtShortDate(d.start)}</div>` : ''}
       </div>`;
     })
     .join('');
@@ -77,7 +81,7 @@ function renderChart(s) {
 function renderModels(s) {
   const list = s.byModel;
   if (!list.length) {
-    els.modelList.innerHTML = '<div class="empty">近 24h 暂无请求</div>';
+    els.modelList.innerHTML = `<div class="empty">${t('noModel24h')}</div>`;
     return;
   }
   const maxCost = Math.max(...list.map((m) => m.cost), 1e-9);
@@ -97,17 +101,17 @@ function renderModels(s) {
 function renderRecharges(s) {
   const r = s.recharges;
   els.rechargeTotal.innerHTML = r.total > 0
-    ? `充值合计 <b>${fmtMoney(r.total)}</b>${r.consumedEstimate != null ? ` · 累计消耗 ≈ ${fmtMoney(r.consumedEstimate)}` : ''}`
+    ? `${t('rechargeTotal')} <b>${fmtMoney(r.total)}</b>${r.consumedEstimate != null ? ` · ${t('consumedEst')} ${fmtMoney(r.consumedEstimate)}` : ''}`
     : '';
   if (!r.list.length) {
-    els.rechargeList.innerHTML = '<div class="empty">还没有充值记录 —— 点击右上角「记录充值」开始记账</div>';
+    els.rechargeList.innerHTML = `<div class="empty">${t('noRecharge')}</div>`;
     return;
   }
   els.rechargeList.innerHTML = r.list
     .map(
       (x) => `<div class="recharge-row">
         <span class="r-amount">+${fmtMoney(x.amount)}</span>
-        <span class="r-note">${escapeHtml(x.note || '充值')}</span>
+        <span class="r-note">${escapeHtml(x.note || t('rechargeFallback'))}</span>
         <span class="r-time">${fmtTime(x.ts)}</span>
       </div>`
     )
@@ -119,40 +123,53 @@ function renderAlert(s) {
   const bal = s.balance;
   const low = Boolean(threshold && bal && bal.totalBalance < threshold);
   els.alertBox.classList.toggle('low', low);
-  const status = !bal ? '等待余额…' : low ? '低余额预警' : threshold ? '正常' : '未设置预警';
+  const status = !bal ? t('waiting') : low ? t('lowBalance') : threshold ? t('normal') : t('noAlert');
   els.alertBox.innerHTML = `
-    <div class="ab-row"><span>当前余额</span><span class="ab-value">${bal ? fmtMoney(bal.totalBalance) : '--'}</span></div>
-    <div class="ab-row"><span>预警线</span><span>${threshold ? fmtMoney(threshold) : '未开启'}</span></div>
-    <div class="ab-row"><span>状态</span><span>${status}</span></div>`;
+    <div class="ab-row"><span>${t('currentBalance')}</span><span class="ab-value">${bal ? fmtMoney(bal.totalBalance) : '--'}</span></div>
+    <div class="ab-row"><span>${t('alertLine')}</span><span>${threshold ? fmtMoney(threshold) : t('notEnabled')}</span></div>
+    <div class="ab-row"><span>${t('status')}</span><span>${status}</span></div>`;
 }
 
 function renderAccounts(s) {
   const cfg = s.config;
+  els.accountBadge.textContent = s.pricing.accountName;
   els.accountSelect.innerHTML =
-    `<option value="">切换账户…</option>` +
+    `<option value="">${t('switchAccount')}</option>` +
     cfg.accounts
       .map((a) => `<option value="${escapeHtml(a.id)}" ${a.id === cfg.selectedAccountId ? 'selected' : ''}>${escapeHtml(a.name)}</option>`)
       .join('');
 }
 
+function renderTagChips(s) {
+  const tags = ['all', ...s.byTag.map((x) => x.tag)];
+  els.tagChips.innerHTML = tags
+    .map(
+      (tag) =>
+        `<button class="tag-chip ${tag === tagFilter ? 'active' : ''}" data-tag="${escapeHtml(tag)}">${tag === 'all' ? t('allTags') : escapeHtml(tag)}</button>`
+    )
+    .join('');
+}
+
 function renderRecent(s) {
-  const rows = s.recent;
+  const rows = s.recent.filter((r) => tagFilter === 'all' || (r.tag || 'default') === tagFilter);
   if (!rows.length) {
-    els.recent.innerHTML = '<tr><td colspan="9"><div class="empty">暂无请求记录 —— 把客户端 Base URL 指向本地代理即可开始统计</div></td></tr>';
+    els.recent.innerHTML = `<tr><td colspan="10"><div class="empty">${t('noRequests')}</div></td></tr>`;
     return;
   }
   els.recent.innerHTML =
     `<thead><tr>
-      <th>时间</th><th>模型</th><th>状态</th><th>输入</th><th>输出</th>
-      <th>缓存命中</th><th>缓存未命中</th><th>金额</th><th>耗时</th>
+      <th>${t('time')}</th><th>${t('tag')}</th><th>${t('model')}</th><th>${t('statusH')}</th>
+      <th>${t('prompt')}</th><th>${t('completion')}</th><th>${t('cacheHitH')}</th><th>${t('cacheMiss')}</th>
+      <th>${t('costH')}</th><th>${t('latency')}</th>
     </tr></thead>` +
     rows
       .map((r) => {
         const statusCls = r.status >= 400 ? 'status-err' : 'status-ok';
         return `<tr>
           <td class="mono">${fmtTime(r.ts)}</td>
-          <td class="model-tag">${escapeHtml(r.model || '(未知)')}</td>
-          <td class="${statusCls}">${r.status}${r.stream ? ' · 流' : ''}</td>
+          <td><span class="tag-chip static">${escapeHtml(r.tag || 'default')}</span></td>
+          <td class="model-tag">${escapeHtml(r.model || t('unknown'))}</td>
+          <td class="${statusCls}">${r.status}${r.stream ? ' · ⧉' : ''}</td>
           <td class="mono">${fmtTokens(r.usage.promptTokens)}</td>
           <td class="mono">${fmtTokens(r.usage.completionTokens)}</td>
           <td class="mono">${fmtTokens(r.usage.cacheHit)}</td>
@@ -166,14 +183,15 @@ function renderRecent(s) {
 
 function render(s) {
   state = s;
+  window.syncLang(s.config.language);
   const bal = s.balance;
   els.balValue.textContent = bal ? fmtMoney(bal.totalBalance) : '--';
-  els.balSub.textContent = bal ? `充值 ${fmtMoney(bal.toppedUpBalance)} · 赠金 ${fmtMoney(bal.grantedBalance)}` : '';
-  els.updated.textContent = bal ? `更新于 ${fmtTime(bal.fetchedAt)}` : '等待余额数据…';
+  els.balSub.textContent = bal ? `${t('recharge')} ${fmtMoney(bal.toppedUpBalance)} · ${t('granted')} ${fmtMoney(bal.grantedBalance)}` : '';
+  els.updated.textContent = bal ? `${t('updatedAt')} ${fmtTime(bal.fetchedAt)}` : t('waiting');
   els.period.textContent = `${s.pricing.accountName} · ${periodLabel(s.pricing.period)}`;
   els.keyWarn.classList.toggle('hidden', s.config.hasApiKey);
   if (s.balanceError) {
-    els.balError.textContent = `余额获取失败：${s.balanceError.message}（将自动重试）`;
+    els.balError.textContent = t('balanceFailed', { msg: s.balanceError.message });
     els.balError.classList.remove('hidden');
   } else {
     els.balError.classList.add('hidden');
@@ -184,10 +202,11 @@ function render(s) {
   renderModels(s);
   renderRecharges(s);
   renderAlert(s);
+  renderTagChips(s);
   renderRecent(s);
-  els.proxyInfo.textContent = `代理 http://127.0.0.1:${s.server.port || s.config.proxyPort}`;
-  els.pricingInfo.textContent = `计费：${periodLabel(s.pricing.period)}（DeepSeek 官方价目，8-17 起峰谷定价）`;
-  els.dataInfo.textContent = `数据：data/usage.jsonl · ${s.stats.all.requests} 条历史请求`;
+  els.proxyInfo.textContent = `${t('proxy')} http://127.0.0.1:${s.server.port || s.config.proxyPort}`;
+  els.pricingInfo.textContent = t('billing') + periodLabel(s.pricing.period);
+  els.dataInfo.textContent = `${t('data')} usage.jsonl · ${s.stats.all.requests} ${t('history')}`;
 }
 
 async function verifyKeyAndClose() {
@@ -196,13 +215,13 @@ async function verifyKeyAndClose() {
   const errEl = $('onboard-error');
   errEl.classList.add('hidden');
   if (!key) {
-    errEl.textContent = '请输入 API Key';
+    errEl.textContent = t('needKey');
     errEl.classList.remove('hidden');
     return;
   }
   const saveBtn = $('onboard-save');
   saveBtn.disabled = true;
-  saveBtn.textContent = '验证中…';
+  saveBtn.textContent = t('verifying');
   try {
     const accounts = state.config.accounts.map((a) => ({
       id: a.id,
@@ -216,20 +235,20 @@ async function verifyKeyAndClose() {
     await window.api.saveSettings({ accounts });
     const s = await window.api.refreshBalance();
     if (s.balanceError) {
-      errEl.textContent = 'Key 验证失败：' + s.balanceError.message + '（请检查 Key 是否正确）';
+      errEl.textContent = t('keyFail', { msg: s.balanceError.message });
       errEl.classList.remove('hidden');
     } else {
       onboardSkipped = true;
       $('onboard-modal').classList.add('hidden');
       render(s);
-      toast('验证通过，剩余 ' + fmtMoney(s.balance.totalBalance));
+      toast(t('keyOk', { bal: fmtMoney(s.balance.totalBalance) }));
     }
   } catch (err) {
-    errEl.textContent = '保存失败：' + err.message;
+    errEl.textContent = t('saveFail', { msg: err.message });
     errEl.classList.remove('hidden');
   } finally {
     saveBtn.disabled = false;
-    saveBtn.textContent = '保存并验证';
+    saveBtn.textContent = t('onboardSave');
   }
 }
 
@@ -248,14 +267,28 @@ $('chart-mode').addEventListener('click', (e) => {
   if (state) renderChart(state);
 });
 
+// ---- 标签筛选 ----
+els.tagChips.addEventListener('click', (e) => {
+  const chip = e.target.closest('.tag-chip');
+  if (!chip || !chip.dataset.tag) return;
+  tagFilter = chip.dataset.tag;
+  if (state) {
+    renderTagChips(state);
+    renderRecent(state);
+  }
+});
+
 // ---- 头部操作 ----
 $('btn-refresh').addEventListener('click', async () => {
   const s = await window.api.refreshBalance();
   render(s);
-  toast('余额已刷新');
+  toast(t('toastRefreshed'));
 });
 
-$('btn-help').addEventListener('click', () => $('help-modal').classList.remove('hidden'));
+$('btn-help').addEventListener('click', () => {
+  window.applyStatic();
+  $('help-modal').classList.remove('hidden');
+});
 $('help-close').addEventListener('click', () => $('help-modal').classList.add('hidden'));
 
 els.accountSelect.addEventListener('change', async () => {
@@ -264,13 +297,13 @@ els.accountSelect.addEventListener('change', async () => {
   await window.api.switchAccount(id);
   const s = await window.api.getState();
   render(s);
-  toast('已切换到账户 ' + s.pricing.accountName);
+  toast(t('toastSwitched', { name: s.pricing.accountName }));
 });
 
 $('btn-export').addEventListener('click', async () => {
   const r = await window.api.exportCsv();
-  if (r.saved) toast('已导出：' + r.path);
-  else toast('导出未完成：' + (r.reason || '未知原因'));
+  if (r.saved) toast(t('toastExported', { path: r.path }));
+  else toast(t('toastExportFail', { reason: r.reason || '?' }));
 });
 
 // ---- 充值 ----
@@ -285,14 +318,14 @@ $('recharge-cancel').addEventListener('click', () => rechargeModal.classList.add
 $('recharge-save').addEventListener('click', async () => {
   const amount = Number($('recharge-amount').value);
   if (!Number.isFinite(amount) || amount <= 0) {
-    toast('请输入有效的充值金额');
+    toast(t('toastBadAmount'));
     return;
   }
   await window.api.addRecharge(amount, $('recharge-note').value.trim());
   rechargeModal.classList.add('hidden');
   const s = await window.api.getState();
   render(s);
-  toast('充值记录已保存');
+  toast(t('toastRechargeSaved'));
 });
 
 // ---- 设置 ----
@@ -301,45 +334,86 @@ $('btn-settings').addEventListener('click', openSettings);
 
 function openSettings() {
   if (!state) return;
+  window.applyStatic();
   $('set-key').value = '';
-  $('set-key').placeholder = state.config.hasApiKey ? '已配置（sk-****…），留空保持不变' : 'sk-...';
+  $('set-key').placeholder = state.config.hasApiKey ? t('keyPlaceholder') : 'sk-...';
   $('set-port').value = state.config.proxyPort;
   $('set-poll').value = Math.round(state.config.balancePollMs / 1000);
   $('set-alert').value = state.config.alertThreshold || 0;
+  $('set-notify').value = state.config.requestNotify || 'all';
+  $('set-lang').value = state.config.language || 'zh';
+  $('set-update-feed').value = state.config.updateFeedUrl || '';
   $('set-autostart').checked = state.config.autoStart;
+  $('update-result').textContent = '';
   editorAccounts = state.config.accounts.map((a) => ({ ...a }));
+  editorTagRules = state.config.tagRules.map((r) => ({ ...r }));
   renderAccountEditor();
+  renderTagRuleEditor();
   settingsModal.classList.remove('hidden');
 }
 
 function renderAccountEditor() {
   const wrap = $('account-editor');
   if (!editorAccounts.length) {
-    wrap.innerHTML = '<div class="empty">暂无账户</div>';
+    wrap.innerHTML = '<div class="empty">—</div>';
     return;
   }
   wrap.innerHTML = editorAccounts
     .map(
       (a, i) => `<div class="account-edit">
         <div class="ae-head">
-          <span>账户 ${i + 1}</span>
-          ${a.id === state.config.selectedAccountId ? '<span class="ae-active">当前使用</span>' : ''}
+          <span>${t('accountN', { n: i + 1 })}</span>
+          ${a.id === state.config.selectedAccountId ? `<span class="ae-active">${t('current')}</span>` : ''}
           <span class="spacer"></span>
-          <button class="ghost small-btn" data-act="set" data-id="${escapeHtml(a.id)}">设为当前</button>
-          <button class="ghost small-btn danger-text" data-act="del" data-id="${escapeHtml(a.id)}" ${editorAccounts.length === 1 ? 'disabled' : ''}>删除</button>
+          <button class="ghost small-btn" data-act="set" data-id="${escapeHtml(a.id)}">${t('setCurrent')}</button>
+          <button class="ghost small-btn danger-text" data-act="del" data-id="${escapeHtml(a.id)}" ${editorAccounts.length === 1 ? 'disabled' : ''}>${t('delete')}</button>
         </div>
         <div class="ae-grid">
-          <label>名称<input data-f="name" data-id="${escapeHtml(a.id)}" value="${escapeHtml(a.name)}" /></label>
-          <label>货币<input data-f="currency" data-id="${escapeHtml(a.id)}" value="${escapeHtml(a.currency)}" /></label>
-          <label>Base URL<input data-f="baseUrl" data-id="${escapeHtml(a.id)}" value="${escapeHtml(a.baseUrl)}" placeholder="https://api.deepseek.com" /></label>
-          <label>API Key<input data-f="apiKey" data-id="${escapeHtml(a.id)}" type="password" placeholder="${a.apiKey ? '已配置，留空不变' : 'sk-...'}" /></label>
-          <label>余额接口 URL<input data-f="balanceUrl" data-id="${escapeHtml(a.id)}" value="${escapeHtml(a.balanceUrl)}" placeholder="{base}/user/balance" /></label>
-          <label>余额 JSON 路径<input data-f="balanceJsonPath" data-id="${escapeHtml(a.id)}" value="${escapeHtml(a.balanceJsonPath)}" placeholder="balance_infos[0].total_balance" /></label>
+          <label>${t('name')}<input data-f="name" data-id="${escapeHtml(a.id)}" value="${escapeHtml(a.name)}" /></label>
+          <label>${t('currency')}<input data-f="currency" data-id="${escapeHtml(a.id)}" value="${escapeHtml(a.currency)}" /></label>
+          <label>${t('baseUrl')}<input data-f="baseUrl" data-id="${escapeHtml(a.id)}" value="${escapeHtml(a.baseUrl)}" placeholder="https://api.deepseek.com" /></label>
+          <label>${t('apiKeyField')}<input data-f="apiKey" data-id="${escapeHtml(a.id)}" type="password" placeholder="${a.apiKey ? t('keyConfigured') : 'sk-...'}" /></label>
+          <label>${t('balanceUrl')}<input data-f="balanceUrl" data-id="${escapeHtml(a.id)}" value="${escapeHtml(a.balanceUrl)}" placeholder="{base}/user/balance" /></label>
+          <label>${t('balanceJsonPath')}<input data-f="balanceJsonPath" data-id="${escapeHtml(a.id)}" value="${escapeHtml(a.balanceJsonPath)}" placeholder="balance_infos[0].total_balance" /></label>
         </div>
       </div>`
     )
     .join('');
 }
+
+function renderTagRuleEditor() {
+  const wrap = $('tag-rule-editor');
+  if (!editorTagRules.length) {
+    wrap.innerHTML = '<div class="empty">—</div>';
+    return;
+  }
+  wrap.innerHTML = editorTagRules
+    .map(
+      (r, i) => `<div class="tag-rule-row">
+        <input data-rule="pattern" data-idx="${i}" value="${escapeHtml(r.pattern || '')}" placeholder="${t('tagPattern')}" />
+        <input data-rule="label" data-idx="${i}" value="${escapeHtml(r.label || '')}" placeholder="${t('tagLabel')}" />
+        <button class="ghost small-btn danger-text" data-rule-del="${i}">${t('delete')}</button>
+      </div>`
+    )
+    .join('');
+}
+
+$('tag-rule-editor').addEventListener('input', (e) => {
+  const el = e.target;
+  if (!el.dataset.rule) return;
+  const idx = Number(el.dataset.idx);
+  if (editorTagRules[idx]) editorTagRules[idx][el.dataset.rule] = el.value;
+});
+$('tag-rule-editor').addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-rule-del]');
+  if (!btn) return;
+  editorTagRules.splice(Number(btn.dataset.ruleDel), 1);
+  renderTagRuleEditor();
+});
+$('btn-add-rule').addEventListener('click', () => {
+  editorTagRules.push({ pattern: '', label: '' });
+  renderTagRuleEditor();
+});
 
 $('account-editor').addEventListener('click', (e) => {
   const btn = e.target.closest('button[data-act]');
@@ -368,7 +442,7 @@ $('btn-add-account').addEventListener('click', () => {
   const id = 'acc-' + Date.now().toString(36);
   editorAccounts.push({
     id,
-    name: isDeepseek ? 'DeepSeek' : '自定义平台',
+    name: isDeepseek ? 'DeepSeek' : t('customName'),
     baseUrl: isDeepseek ? 'https://api.deepseek.com' : 'https://api.example.com',
     apiKey: '',
     balanceUrl: isDeepseek ? '{base}/user/balance' : '{base}/user/balance',
@@ -385,6 +459,25 @@ $('toggle-key').addEventListener('click', () => {
   input.type = show ? 'text' : 'password';
   $('toggle-key').textContent = show ? '隐藏' : '显示';
 });
+
+$('btn-check-update').addEventListener('click', async () => {
+  const resultEl = $('update-result');
+  resultEl.textContent = t('updateChecking');
+  const r = await window.api.checkUpdate();
+  if (r.status === 'up-to-date') {
+    resultEl.textContent = t('updateLatest', { ver: r.currentVersion });
+  } else if (r.status === 'update-available') {
+    resultEl.innerHTML = `${t('updateFound', { ver: r.version })} — <a id="update-download">${t('updateOpen')}</a>`;
+    $('update-download').addEventListener('click', () => {
+      if (r.url) window.api.openExternal(r.url);
+    });
+  } else if (r.status === 'no-feed') {
+    resultEl.textContent = t('updateNoFeed');
+  } else {
+    resultEl.textContent = t('updateError', { msg: r.message });
+  }
+});
+
 $('btn-save').addEventListener('click', async () => {
   const key = $('set-key').value.trim();
   const selectedId = state.config.selectedAccountId;
@@ -398,6 +491,10 @@ $('btn-save').addEventListener('click', async () => {
     proxyPort: Math.max(1024, Number($('set-port').value) || 8787),
     balancePollMs: Math.max(10, Number($('set-poll').value) || 60) * 1000,
     alertThreshold: Math.max(0, Number($('set-alert').value) || 0),
+    requestNotify: $('set-notify').value,
+    language: $('set-lang').value,
+    updateFeedUrl: $('set-update-feed').value.trim(),
+    tagRules: editorTagRules.filter((r) => r.label && r.pattern),
     autoStart: $('set-autostart').checked,
   };
   try {
@@ -405,18 +502,18 @@ $('btn-save').addEventListener('click', async () => {
     settingsModal.classList.add('hidden');
     const s = await window.api.getState();
     render(s);
-    toast('已保存，代理已重启');
+    toast(t('toastSaved'));
   } catch (err) {
-    toast('保存失败：' + err.message);
+    toast(t('saveFail', { msg: err.message }));
   }
 });
 $('btn-clear').addEventListener('click', async () => {
-  if (!confirm('确定清空全部请求记录吗？此操作不可恢复。')) return;
+  if (!confirm(t('confirmClear'))) return;
   await window.api.clearData();
   settingsModal.classList.add('hidden');
   const s = await window.api.getState();
   render(s);
-  toast('记录已清空');
+  toast(t('toastCleared'));
 });
 
 // ---- 引导 ----

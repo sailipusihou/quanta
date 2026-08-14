@@ -152,6 +152,22 @@ class Store extends EventEmitter {
     return [...map.values()].sort((a, b) => b.cost - a.cost);
   }
 
+  byTag(sinceTs) {
+    const map = new Map();
+    for (const e of this.events) {
+      if (e.kind !== 'request') continue;
+      if (sinceTs && e.ts < sinceTs) continue;
+      const key = e.tag || 'default';
+      const cur = map.get(key) || { tag: key, requests: 0, totalTokens: 0, cost: 0, errors: 0 };
+      cur.requests += 1;
+      cur.totalTokens += e.usage.totalTokens;
+      cur.cost += e.cost;
+      if (e.status >= 400) cur.errors += 1;
+      map.set(key, cur);
+    }
+    return [...map.values()].sort((a, b) => b.cost - a.cost);
+  }
+
   series(kind, buckets) {
     const out = [];
     const now = Date.now();

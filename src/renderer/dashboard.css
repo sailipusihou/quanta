@@ -160,6 +160,19 @@ main {
 .seg button.range { color: #6f7483; }
 .seg button.range.active { background: rgba(109,139,255,0.18); color: #9db4ff; }
 
+.tag-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.tag-chip {
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--muted);
+  cursor: pointer;
+}
+.tag-chip.active { background: rgba(109,139,255,0.18); border-color: rgba(109,139,255,0.4); color: #9db4ff; }
+.tag-chip:hover { border-color: rgba(255,255,255,0.2); }
+
 .bars.dense .bar-fill { width: 70%; }
 .bars.dense .bar-label { font-size: 8px; }
 .small-btn { padding: 3px 8px !important; font-size: 11px !important; }
@@ -276,6 +289,37 @@ footer {
   color: var(--text);
   border-radius: 8px;
   padding: 7px 10px;
+}
+.field select {
+  font-family: inherit;
+  font-size: 13px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 8px 10px;
+  outline: none;
+}
+.field select:focus { border-color: var(--accent); }
+.update-row { display: flex; align-items: center; gap: 10px; }
+.update-result { font-size: 12px; color: var(--muted); flex: 1; }
+.update-result a { color: #9db4ff; cursor: pointer; text-decoration: underline; }
+.tag-hint { flex: 1; font-size: 11px; color: var(--muted); }
+.tag-rule-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.tag-rule-row input {
+  flex: 1;
+  font-family: inherit;
+  font-size: 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 7px;
+  padding: 6px 9px;
+  outline: none;
 }
 .account-edit {
   border: 1px solid var(--border);

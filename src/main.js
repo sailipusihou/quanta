@@ -3,19 +3,57 @@
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
-const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, dialog, Notification } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, dialog, Notification, shell } = require('electron');
 
 // 必须在 require('./server') 之前设置：config.js 会在加载时读取数据目录，
 // 打包版要写入系统用户目录而不是只读的 app.asar。
 process.env.TOKEN_DATA_DIR = path.join(app.getPath('userData'), 'data');
 
 const { createTokenServer } = require('./server');
+const { checkForUpdate } = require('./server/update');
 
 let mainWindow = null;
 let widgetWindow = null;
 let tray = null;
 let server = null;
 let pushTimer = null;
+let notifQueue = [];
+let notifTimer = null;
+
+const UI_TEXT = {
+  zh: {
+    notifyRequest: '请求完成',
+    notifyRequests: '次请求完成',
+    notifyTokens: 'Token',
+    notifyCost: '费用',
+    notifyError: '请求失败',
+    alertTitle: 'Token消费器 · 余额预警',
+    alertBody: '账户「{name}」余额 {balance} 元，已低于预警线 {threshold} 元',
+    updateTitle: '发现新版本',
+    updateBody: 'Token消费器 {version} 已发布：{url}',
+  },
+  en: {
+    notifyRequest: 'Request done',
+    notifyRequests: 'requests done',
+    notifyTokens: 'Tokens',
+    notifyCost: 'Cost',
+    notifyError: 'Request failed',
+    alertTitle: 'Token Monitor · Balance Alert',
+    alertBody: 'Account "{name}" balance {balance} CNY is below threshold {threshold} CNY',
+    updateTitle: 'New version available',
+    updateBody: 'Token Monitor {version} released: {url}',
+  },
+};
+
+function langText(key) {
+  const lang = server && server.config ? server.config.language || 'zh' : 'zh';
+  const table = UI_TEXT[lang] || UI_TEXT.zh;
+  return table[key] || key;
+}
+
+function formatText(template, vars) {
+  return template.replace(/\{(\w+)\}/g, (m, k) => (vars[k] != null ? vars[k] : m));
+}
 
 const ICON_PATH = path.join(__dirname, '..', 'assets', 'icon.png');
 const PRELOAD = path.join(__dirname, 'preload.js');
@@ -43,6 +81,34 @@ function schedulePush() {
     pushTimer = null;
     pushState();
   }, 150);
+}
+
+function maybeNotifyRequest(e) {
+  const mode = server.config.requestNotify || 'all';
+  if (mode === 'off' || !Notification.isSupported()) return;
+  const isError = e.status >= 400;
+  if (mode === 'error' && !isError) return;
+  notifQueue.push(e);
+  if (notifTimer) return;
+  notifTimer = setTimeout(() => {
+    notifTimer = null;
+    const batch = notifQueue;
+    notifQueue = [];
+    let tokens = 0;
+    let cost = 0;
+    let errors = 0;
+    for (const r of batch) {
+      tokens += r.usage.totalTokens;
+      cost += r.cost;
+      if (r.status >= 400) errors += 1;
+    }
+    const title =
+      batch.length === 1
+        ? `${langText('notifyRequest')} · ${batch[0].model || '?'}${batch[0].status >= 400 ? ' ✗' : ''}`
+        : `${batch.length} ${langText('notifyRequests')}${errors ? `（${errors} ✗）` : ''}`;
+    const body = `${langText('notifyTokens')}: ${tokens.toLocaleString()} · ${langText('notifyCost')}: ¥${cost.toFixed(4)}`;
+    new Notification({ title, body }).show();
+  }, 2000);
 }
 
 function showWidget() {
@@ -189,6 +255,17 @@ function registerIpc() {
     fs.writeFileSync(result.filePath, toCsv(rows), 'utf8');
     return { saved: true, path: result.filePath };
   });
+  ipcMain.handle('update:check', async () => {
+    const r = await checkForUpdate({
+      feedUrl: server.config.updateFeedUrl,
+      currentVersion: app.getVersion(),
+      apiKey: '',
+    });
+    return r;
+  });
+  ipcMain.handle('shell:open', (_e, url) => {
+    if (url) shell.openExternal(String(url));
+  });
   ipcMain.handle('data:clear', () => {
     server.store.clear();
     pushState();
@@ -219,10 +296,18 @@ if (!gotLock) {
     server = createTokenServer();
     logStartup('server created');
     server.on('event', schedulePush);
+    server.on('event', (e) => {
+      if (e.kind === 'request') maybeNotifyRequest(e);
+    });
     server.on('started', schedulePush);
     server.on('alert', (message) => {
       if (Notification.isSupported()) {
-        new Notification({ title: 'Token消费器 · 余额预警', body: message }).show();
+        const t = formatText(langText('alertBody'), {
+          name: message.accountName,
+          balance: message.balance,
+          threshold: message.threshold,
+        });
+        new Notification({ title: langText('alertTitle'), body: t }).show();
       }
     });
     try {

@@ -66,3 +66,19 @@ npm run dist
 
 - `TokenConsumer-Setup-<版本>.exe`：安装版（可改安装目录、生成桌面快捷方式）
 - `TokenConsumer-Portable-<版本>.exe`：便携版（解压即用，无需安装）
+
+## 代码签名（消除 SmartScreen 警告）
+
+未签名的安装包首次运行时 Windows SmartScreen 会提示"未知发布者"。消除它需要数字签名证书，有两种方式：
+
+1. **OV/EV 代码签名证书**（约 ¥1000+/年，企业主体）：拿到 `.pfx` 证书后，用以下命令打包，会自动签名：
+
+   ```text
+   $env:CSC_LINK = "C:\path\to\cert.pfx"
+   $env:CSC_KEY_PASSWORD = "证书密码"
+   npm run dist
+   ```
+
+2. **Azure Trusted Signing**（约 ¥9.99/月，个人可办，无需 U 盾）：在 Azure 门户创建 Trusted Signing 账户后，在 `package.json` 的 `build.win` 里配置 `azureSignOptions`（endpoint、certificateProfileName、codeSigningAccountName），或使用 electron-builder 官方文档中的环境变量方式。
+
+> 签名后还需要一段时间的下载量积累，SmartScreen 声誉才会完全消失；大量用户下载 + 证书签名是标准做法。

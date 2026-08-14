@@ -31,6 +31,10 @@ const DEFAULTS = {
   proxyPort: 8787,
   balancePollMs: 60000,
   alertThreshold: 0,
+  requestNotify: 'all', // off | error | all
+  language: 'zh', // zh | en
+  updateFeedUrl: '',
+  tagRules: [],
   autoStart: false,
   widget: { x: null, y: null, width: 360, height: 148 },
 };

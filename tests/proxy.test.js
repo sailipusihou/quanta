@@ -200,3 +200,58 @@ test('非对话路径（/models）正常转发且不产生消耗记录', async (
   server.close();
   mock.close();
 });
+
+test('请求标签：请求头优先，其次按 User-Agent 规则匹配', async () => {
+  const mock = await startMockUpstream((req, res) => {
+    req.resume();
+    req.on('end', () => {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          model: 'deepseek-v4-flash',
+          choices: [],
+          usage: { prompt_tokens: 5, completion_tokens: 1, total_tokens: 6 },
+        })
+      );
+    });
+  });
+
+  const records = [];
+  const { server, port } = await startProxy({
+    port: 0,
+    upstreamBase: `http://127.0.0.1:${mock.address().port}`,
+    apiKey: 'sk-test',
+    tagRules: [
+      { pattern: 'claude', label: 'CLI' },
+      { pattern: 'chatbox', label: 'ChatBox' },
+    ],
+    onRecord: (e) => records.push(e),
+  });
+
+  await post(
+    port,
+    '/chat/completions',
+    { model: 'deepseek-v4-flash', messages: [{ role: 'user', content: 'hi' }] },
+    { 'user-agent': 'Claude-CLI/1.2.3' }
+  );
+  await post(
+    port,
+    '/chat/completions',
+    { model: 'deepseek-v4-flash', messages: [{ role: 'user', content: 'hi' }] },
+    { 'user-agent': 'ChatBox/0.9', 'x-token-tag': 'my-project' }
+  );
+  await post(
+    port,
+    '/chat/completions',
+    { model: 'deepseek-v4-flash', messages: [{ role: 'user', content: 'hi' }] },
+    { 'user-agent': 'curl/8.0' }
+  );
+
+  assert.deepEqual(
+    records.map((r) => r.tag),
+    ['CLI', 'my-project', 'default']
+  );
+
+  server.close();
+  mock.close();
+});

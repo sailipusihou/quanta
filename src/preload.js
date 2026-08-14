@@ -9,6 +9,8 @@ contextBridge.exposeInMainWorld('api', {
   switchAccount: (id) => ipcRenderer.invoke('account:switch', id),
   addRecharge: (amount, note) => ipcRenderer.invoke('recharge:add', amount, note),
   exportCsv: () => ipcRenderer.invoke('data:export'),
+  checkUpdate: () => ipcRenderer.invoke('update:check'),
+  openExternal: (url) => ipcRenderer.invoke('shell:open', url),
   clearData: () => ipcRenderer.invoke('data:clear'),
   openDashboard: () => ipcRenderer.invoke('window:openDashboard'),
   hideWidget: () => ipcRenderer.invoke('window:hide'),

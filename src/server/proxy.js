@@ -82,10 +82,30 @@ function extractError(body) {
   return null;
 }
 
-function startProxy({ port, upstreamBase, apiKey, onRecord }) {
+function startProxy({ port, upstreamBase, apiKey, onRecord, tagRules = [] }) {
+  const compiledRules = tagRules
+    .map((r) => {
+      try {
+        return { label: String(r.label || '').trim(), regex: new RegExp(String(r.pattern || ''), 'i') };
+      } catch {
+        return null;
+      }
+    })
+    .filter((r) => r && r.label && r.regex);
+
+  function resolveTag(req) {
+    const header = req.headers['x-token-tag'] || req.headers['x-tag'];
+    if (header && String(header).trim()) return String(header).trim().slice(0, 40);
+    const ua = String(req.headers['user-agent'] || '');
+    for (const r of compiledRules) {
+      if (r.regex.test(ua)) return r.label;
+    }
+    return 'default';
+  }
+
   return new Promise((resolve, reject) => {
     const server = http.createServer((req, res) => {
-      handleRequest(req, res, { upstreamBase, apiKey, onRecord }).catch((err) => {
+      handleRequest(req, res, { upstreamBase, apiKey, onRecord, resolveTag }).catch((err) => {
         onRecord(makeEntry(req, { status: 502 }, null, err, Date.now(), false));
         if (!res.headersSent) {
           res.writeHead(502, { 'content-type': 'application/json; charset=utf-8' });
@@ -96,13 +116,14 @@ function startProxy({ port, upstreamBase, apiKey, onRecord }) {
       });
     });
     server.on('error', reject);
-    server.listen(port, '127.0.0.1', () => resolve({ server, port: server.address().port }));
+    server.listen(port, '127.0.0.1', () => resolve({ server, port: server.address().port, resolveTag }));
   });
 }
 
-async function handleRequest(req, res, { upstreamBase, apiKey, onRecord }) {
+async function handleRequest(req, res, { upstreamBase, apiKey, onRecord, resolveTag }) {
   const startTs = Date.now();
   const rawBody = await collectBody(req);
+  const tag = resolveTag(req);
   const isChat = isChatPath(req.url);
   const { body, json: bodyJson } = isChat ? prepareChatBody(rawBody) : { body: rawBody, json: null };
   const upstreamUrl = buildUpstreamUrl(req.url, upstreamBase);
@@ -121,9 +142,9 @@ async function handleRequest(req, res, { upstreamBase, apiKey, onRecord }) {
   const lib = upstreamUrl.protocol === 'https:' ? https : http;
   const outReq = lib.request(upstreamUrl, { method: req.method, headers }, (upRes) => {
     if (isChat && isStream) {
-      handleStreamResponse(req, res, upRes, { startTs, bodyJson, onRecord });
+      handleStreamResponse(req, res, upRes, { startTs, bodyJson, onRecord, tag });
     } else {
-      handleBufferedResponse(req, res, upRes, { startTs, bodyJson, onRecord });
+      handleBufferedResponse(req, res, upRes, { startTs, bodyJson, onRecord, tag });
     }
   });
 
@@ -141,7 +162,7 @@ async function handleRequest(req, res, { upstreamBase, apiKey, onRecord }) {
   outReq.end();
 }
 
-function handleStreamResponse(req, res, upRes, { startTs, bodyJson, onRecord }) {
+function handleStreamResponse(req, res, upRes, { startTs, bodyJson, onRecord, tag }) {
   let usage = null;
   let model = (bodyJson && bodyJson.model) || null;
   let usageRecorded = false;
@@ -169,9 +190,9 @@ function handleStreamResponse(req, res, upRes, { startTs, bodyJson, onRecord }) 
       if (upRes.statusCode >= 400) error = `上游返回 ${upRes.statusCode}`;
       usage = usage || { promptTokens: 0, completionTokens: 0, cacheHit: 0, cacheMiss: 0, totalTokens: 0 };
     }
-    const cost = computeCost(model, usage, Date.now());
+  const cost = computeCost(model, usage, Date.now());
     onRecord(
-      makeEntry(req, { status: upRes.statusCode || 200 }, { model, usage, cost, error }, null, Date.now() - startTs, true)
+      makeEntry(req, { status: upRes.statusCode || 200 }, { model, usage, cost, error, tag }, null, Date.now() - startTs, true)
     );
   };
 
@@ -214,7 +235,7 @@ function handleStreamResponse(req, res, upRes, { startTs, bodyJson, onRecord }) 
   upRes.pipe(transform).pipe(res);
 }
 
-function handleBufferedResponse(req, res, upRes, { startTs, bodyJson, onRecord }) {
+function handleBufferedResponse(req, res, upRes, { startTs, bodyJson, onRecord, tag }) {
   const chunks = [];
   upRes.on('data', (c) => chunks.push(c));
   upRes.on('end', () => {
@@ -233,7 +254,7 @@ function handleBufferedResponse(req, res, upRes, { startTs, bodyJson, onRecord }
       const error = extractError(json);
       const cost = computeCost(model, usage, Date.now());
       onRecord(
-        makeEntry(req, { status: upRes.statusCode || 200 }, { model, usage, cost, error }, null, Date.now() - startTs, false)
+        makeEntry(req, { status: upRes.statusCode || 200 }, { model, usage, cost, error, tag }, null, Date.now() - startTs, false)
       );
     }
     const respondHeaders = { ...upRes.headers };
@@ -274,6 +295,7 @@ function makeEntry(req, resInfo, extra, err, ms, stream) {
     ms,
     stream: Boolean(stream),
     model: e.model || null,
+    tag: e.tag || null,
     usage,
     cost: e.cost ? e.cost.amount : 0,
     costRates: e.cost ? e.cost.rates : null,

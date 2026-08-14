@@ -7,6 +7,7 @@ const els = {
   est: document.getElementById('est'),
   port: document.getElementById('port'),
   spark: document.getElementById('spark'),
+  platform: document.getElementById('platform'),
 };
 
 function renderSpark(series) {
@@ -28,16 +29,17 @@ function renderSpark(series) {
 }
 
 function render(s) {
+  window.syncLang(s.config.language);
   const bal = s.balance;
   const threshold = Number(s.config.alertThreshold) || 0;
   const low = Boolean(threshold && bal && bal.totalBalance < threshold);
   document.getElementById('widget').classList.toggle('low', low);
-  document.querySelector('.platform').textContent = (s.pricing && s.pricing.accountName) || 'DeepSeek';
+  els.platform.textContent = (s.pricing && s.pricing.accountName) || 'DeepSeek';
   els.balance.textContent = bal ? fmtMoney(bal.totalBalance) : '--';
   els.todayCost.textContent = fmtMoney(s.stats.today.cost);
   els.todayTokens.textContent = fmtTokens(s.stats.today.totalTokens) + ' tokens';
-  els.est.textContent = s.estimatedTokens != null ? '估算剩余 ' + fmtTokens(s.estimatedTokens) : '估算剩余 --';
-  els.port.textContent = '代理 ' + (s.server.port || s.config.proxyPort);
+  els.est.textContent = (s.estimatedTokens != null ? t('widgetEst') + ' ' + fmtTokens(s.estimatedTokens) : t('widgetEst') + ' --');
+  els.port.textContent = (s.server.port || s.config.proxyPort) + '';
   renderSpark(s.series.hours);
 }
 

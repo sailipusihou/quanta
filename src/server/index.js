@@ -49,6 +49,7 @@ class TokenServer extends EventEmitter {
           port,
           upstreamBase: account.baseUrl,
           apiKey: account.apiKey,
+          tagRules: cfg.tagRules,
           onRecord: (entry) => this.store.recordRequest(entry),
         });
         this.proxyServer = server;
@@ -95,7 +96,11 @@ class TokenServer extends EventEmitter {
         this.alertFired = true;
         this.emit(
           'alert',
-          `账户「${this.selectedAccount().name}」余额 ${balance.totalBalance.toFixed(2)} 元，已低于预警线 ${threshold} 元`
+          {
+            accountName: this.selectedAccount().name,
+            balance: balance.totalBalance.toFixed(2),
+            threshold: threshold.toFixed(2),
+          }
         );
       }
     } else {
@@ -121,6 +126,7 @@ class TokenServer extends EventEmitter {
           port,
           upstreamBase: account.baseUrl,
           apiKey: account.apiKey,
+          tagRules: this.config.tagRules,
           onRecord: (entry) => this.store.recordRequest(entry),
         });
         this.proxyServer = srv;
@@ -207,6 +213,7 @@ class TokenServer extends EventEmitter {
         hours: this.store.series('hour', 24),
       },
       byModel: this.store.byModel(startOf24h),
+      byTag: this.store.byTag(startOf24h),
       recent: this.store.recent(30),
       recharges: {
         list: this.store.listRecharges().slice(0, 20),
@@ -218,6 +225,10 @@ class TokenServer extends EventEmitter {
         proxyPort: cfg.proxyPort,
         balancePollMs: cfg.balancePollMs,
         alertThreshold: Number(cfg.alertThreshold) || 0,
+        requestNotify: cfg.requestNotify || 'all',
+        language: cfg.language || 'zh',
+        updateFeedUrl: cfg.updateFeedUrl || '',
+        tagRules: Array.isArray(cfg.tagRules) ? cfg.tagRules : [],
         autoStart: cfg.autoStart,
         widget: { ...cfg.widget },
         selectedAccountId: cfg.selectedAccountId,
