@@ -143,7 +143,7 @@ async function handleRequest(req, res, { upstreamBase, apiKey, onRecord }) {
 
 function handleStreamResponse(req, res, upRes, { startTs, bodyJson, onRecord }) {
   let usage = null;
-  let model = bodyJson.model || null;
+  let model = (bodyJson && bodyJson.model) || null;
   let usageRecorded = false;
   let error = null;
 
@@ -225,17 +225,17 @@ function handleBufferedResponse(req, res, upRes, { startTs, bodyJson, onRecord }
     } catch {
       json = null;
     }
-    let usage = null;
-    let model = bodyJson.model || null;
-    if (json && json.model) model = json.model;
     if (isChatPath(req.url)) {
+      let usage = null;
+      let model = (bodyJson && bodyJson.model) || null;
+      if (json && json.model) model = json.model;
       usage = req.url.includes('/messages') ? extractAnthropicUsage(json) : extractOpenAIUsage(json);
+      const error = extractError(json);
+      const cost = computeCost(model, usage, Date.now());
+      onRecord(
+        makeEntry(req, { status: upRes.statusCode || 200 }, { model, usage, cost, error }, null, Date.now() - startTs, false)
+      );
     }
-    const error = extractError(json);
-    const cost = computeCost(model, usage, Date.now());
-    onRecord(
-      makeEntry(req, { status: upRes.statusCode || 200 }, { model, usage, cost, error }, null, Date.now() - startTs, false)
-    );
     const respondHeaders = { ...upRes.headers };
     delete respondHeaders.connection;
     delete respondHeaders['transfer-encoding'];

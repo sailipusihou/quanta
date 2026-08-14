@@ -28,6 +28,17 @@ function post(port, path, body, headers = {}) {
   });
 }
 
+function get(port, path) {
+  return new Promise((resolve, reject) => {
+    const req = http.get({ host: '127.0.0.1', port, path }, (res) => {
+      let buf = '';
+      res.on('data', (c) => (buf += c));
+      res.on('end', () => resolve({ status: res.statusCode, body: buf }));
+    });
+    req.on('error', reject);
+  });
+}
+
 function waitForEvent(target, name) {
   return new Promise((resolve) => target.once(name, resolve));
 }
@@ -159,6 +170,32 @@ test('上游 4xx 错误也会被记录', async () => {
   assert.equal(records.length, 1);
   assert.equal(records[0].status, 402);
   assert.equal(records[0].error, '余额不足');
+
+  server.close();
+  mock.close();
+});
+
+test('非对话路径（/models）正常转发且不产生消耗记录', async () => {
+  const mock = await startMockUpstream((req, res) => {
+    req.resume();
+    req.on('end', () => {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ data: [{ id: 'deepseek-v4-flash' }] }));
+    });
+  });
+
+  const records = [];
+  const { server, port } = await startProxy({
+    port: 0,
+    upstreamBase: `http://127.0.0.1:${mock.address().port}`,
+    apiKey: 'sk-test',
+    onRecord: (e) => records.push(e),
+  });
+
+  const res = await get(port, '/models');
+  assert.equal(res.status, 200);
+  assert.ok(JSON.parse(res.body).data[0].id === 'deepseek-v4-flash');
+  assert.equal(records.length, 0);
 
   server.close();
   mock.close();

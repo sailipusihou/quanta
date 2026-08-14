@@ -24,6 +24,7 @@
     <div class="actions">
       <span class="updated" id="updated"></span>
       <button id="btn-refresh">刷新余额</button>
+      <button id="btn-help">使用说明</button>
       <button id="btn-settings">设置</button>
     </div>
   </header>
@@ -90,6 +91,43 @@
         <button class="primary" id="btn-save">保存</button>
       </div>
       <p class="note">保存后会重启本地代理。API Key 仅保存在本机 <code>data/config.json</code>，不会写入代码或日志。</p>
+    </div>
+  </div>
+
+  <div class="modal hidden" id="onboard-modal">
+    <div class="modal-box">
+      <div class="logo lg">¥</div>
+      <h2>欢迎使用 Token消费器</h2>
+      <p class="intro">填入你的 DeepSeek API Key，即可看到剩余金额；把客户端指向本地代理后，还能看到每一次调用的 token 消耗。</p>
+      <label class="field">DeepSeek API Key
+        <div class="key-row">
+          <input type="password" id="onboard-key" placeholder="sk-..." autocomplete="off" />
+          <button class="ghost" id="onboard-toggle">显示</button>
+        </div>
+      </label>
+      <p class="field-error hidden" id="onboard-error"></p>
+      <div class="modal-actions">
+        <button class="ghost" id="onboard-skip">跳过</button>
+        <span class="spacer"></span>
+        <button class="primary" id="onboard-save">保存并验证</button>
+      </div>
+      <p class="note">Key 仅保存在本机 <code>data/config.json</code>，不会上传到任何服务器。</p>
+    </div>
+  </div>
+
+  <div class="modal hidden" id="help-modal">
+    <div class="modal-box wide">
+      <h2>使用说明</h2>
+      <ol class="help">
+        <li><b>填写 API Key</b>：在「设置」里填入你的 DeepSeek API Key，保存后自动显示剩余金额。</li>
+        <li><b>指向本地代理</b>：把 ChatBox、Cherry Studio、NextChat、Claude Code 等客户端的 Base URL 填为 <code>http://127.0.0.1:8787</code>（API Key 随便填，实际使用本软件里保存的 Key）。</li>
+        <li><b>实时查看</b>：悬浮小窗显示余额与今日消耗，仪表盘显示每一次请求的 token 明细。</li>
+        <li>未走代理的调用（DeepSeek 网页端、官方 App、直接连 api.deepseek.com 的代码）只能看到余额变化，看不到单次明细。</li>
+      </ol>
+      <div class="modal-actions">
+        <span class="spacer"></span>
+        <button class="primary" id="help-close">知道了</button>
+      </div>
     </div>
   </div>
 

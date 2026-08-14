@@ -2,9 +2,14 @@
 
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, dialog } = require('electron');
+
+// 必须在 require('./server') 之前设置：config.js 会在加载时读取数据目录，
+// 打包版要写入系统用户目录而不是只读的 app.asar。
+process.env.TOKEN_DATA_DIR = path.join(app.getPath('userData'), 'data');
+
 const { createTokenServer } = require('./server');
-const { loadConfig, saveConfig } = require('./server/config');
 
 let mainWindow = null;
 let widgetWindow = null;
@@ -14,6 +19,15 @@ let pushTimer = null;
 
 const ICON_PATH = path.join(__dirname, '..', 'assets', 'icon.png');
 const PRELOAD = path.join(__dirname, 'preload.js');
+const STARTUP_LOG = path.join(os.tmpdir(), 'token-consumer-startup.log');
+
+function logStartup(msg) {
+  try {
+    fs.appendFileSync(STARTUP_LOG, `${new Date().toISOString()} ${msg}\n`, 'utf8');
+  } catch {
+    /* 忽略日志写入错误 */
+  }
+}
 
 function pushState() {
   if (!server) return;
@@ -168,13 +182,18 @@ if (!gotLock) {
   app.on('second-instance', () => createDashboard());
 
   app.whenReady().then(async () => {
+    logStartup('whenReady entered');
     registerIpc();
+    logStartup('data dir: ' + process.env.TOKEN_DATA_DIR);
     server = createTokenServer();
+    logStartup('server created');
     server.on('event', schedulePush);
     server.on('started', schedulePush);
     try {
       await server.start();
+      logStartup('server started on port ' + server.port + ', balance: ' + JSON.stringify(server.store.lastBalance));
     } catch (err) {
+      logStartup('server start FAILED: ' + err.stack);
       dialog.showErrorBox('Token消费器启动失败', err.message);
       app.quit();
       return;
@@ -193,3 +212,6 @@ if (!gotLock) {
     server?.stop();
   });
 }
+
+process.on('uncaughtException', (err) => logStartup('uncaughtException: ' + err.stack));
+process.on('unhandledRejection', (err) => logStartup('unhandledRejection: ' + (err && err.stack)));

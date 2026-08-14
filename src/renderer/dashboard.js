@@ -20,6 +20,7 @@ const els = {
   dataInfo: $('data-info'),
   toast: $('toast'),
 };
+let onboardSkipped = false;
 
 function toast(msg) {
   els.toast.textContent = msg;
@@ -136,6 +137,40 @@ function render(s) {
   els.dataInfo.textContent = `数据：data/usage.jsonl · ${s.stats.all.requests} 条历史请求`;
 }
 
+async function verifyKeyAndClose(onboard) {
+  const input = $('onboard-key');
+  const key = input.value.trim();
+  const errEl = $('onboard-error');
+  errEl.classList.add('hidden');
+  if (!key) {
+    errEl.textContent = '请输入 API Key';
+    errEl.classList.remove('hidden');
+    return;
+  }
+  const saveBtn = $('onboard-save');
+  saveBtn.disabled = true;
+  saveBtn.textContent = '验证中…';
+  try {
+    await window.api.saveSettings({ apiKey: key });
+    const s = await window.api.refreshBalance();
+    if (s.balanceError) {
+      errEl.textContent = 'Key 验证失败：' + s.balanceError.message + '（请检查 Key 是否正确）';
+      errEl.classList.remove('hidden');
+    } else {
+      onboardSkipped = true;
+      $('onboard-modal').classList.add('hidden');
+      render(s);
+      toast('验证通过，剩余 ' + fmtMoney(s.balance.totalBalance));
+    }
+  } catch (err) {
+    errEl.textContent = '保存失败：' + err.message;
+    errEl.classList.remove('hidden');
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.textContent = '保存并验证';
+  }
+}
+
 $('chart-mode').addEventListener('click', (e) => {
   const btn = e.target.closest('button');
   if (!btn) return;
@@ -148,6 +183,21 @@ $('btn-refresh').addEventListener('click', async () => {
   const s = await window.api.refreshBalance();
   render(s);
   toast('余额已刷新');
+});
+
+$('btn-help').addEventListener('click', () => $('help-modal').classList.remove('hidden'));
+$('help-close').addEventListener('click', () => $('help-modal').classList.add('hidden'));
+
+$('onboard-toggle').addEventListener('click', () => {
+  const input = $('onboard-key');
+  const show = input.type === 'password';
+  input.type = show ? 'text' : 'password';
+  $('onboard-toggle').textContent = show ? '隐藏' : '显示';
+});
+$('onboard-save').addEventListener('click', verifyKeyAndClose);
+$('onboard-skip').addEventListener('click', () => {
+  onboardSkipped = true;
+  $('onboard-modal').classList.add('hidden');
 });
 
 const settingsModal = $('settings-modal');
@@ -192,4 +242,9 @@ $('btn-clear').addEventListener('click', async () => {
 });
 
 window.api.onState(render);
-window.api.getState().then(render);
+window.api.getState().then((s) => {
+  render(s);
+  if (!s.config.hasApiKey && !onboardSkipped) {
+    $('onboard-modal').classList.remove('hidden');
+  }
+});

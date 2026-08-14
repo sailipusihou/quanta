@@ -5,7 +5,7 @@ const { Store } = require('./store');
 const { fetchBalance } = require('./balance');
 const { startProxy } = require('./proxy');
 const { defaultPerTokenCost, rateFor } = require('./pricing');
-const { DATA_DIR, loadConfig, saveConfig } = require('./config');
+const { getDataDir, loadConfig, saveConfig } = require('./config');
 
 const DEFAULT_PER_TOKEN_CNY = 2.5e-6;
 
@@ -13,7 +13,7 @@ class TokenServer extends EventEmitter {
   constructor(config) {
     super();
     this.config = config;
-    this.store = new Store(DATA_DIR);
+    this.store = new Store(getDataDir());
     this.port = null;
     this.proxyServer = null;
     this.pollTimer = null;

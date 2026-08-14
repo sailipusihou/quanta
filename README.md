@@ -4,6 +4,19 @@
 
 ## 快速开始
 
+### 给使用者（无需代码环境）
+
+下载 `TokenConsumer-Setup-*.exe`（安装版）或 `TokenConsumer-Portable-*.exe`（便携版，双击即用）：
+
+1. 打开软件，首次启动会弹出引导，填入你自己的 DeepSeek API Key 并点击「保存并验证」。
+2. 看到剩余金额即表示连接成功。
+3. 把你常用的客户端（ChatBox、Cherry Studio 等）的 Base URL 指向 `http://127.0.0.1:8787`，
+   之后每次调用都会实时显示 token 消耗。
+
+> 每个人填自己的 Key，数据只保存在自己电脑上，不需要任何服务器。
+
+### 开发者模式
+
 1. 安装依赖并启动：
 
    ```text
@@ -30,8 +43,21 @@
 - 估算剩余 token：余额 ÷ 近期每 token 平均成本
 - 悬浮小窗：置顶、可拖动、双击打开仪表盘
 - 仪表盘：今日/本月统计、近 7 天图表、按模型分解、请求明细、设置
+- 新用户引导：首次打开提示填写 API Key 并自动验证余额
 
 ## 数据与安全
 
 - API Key 仅存于 `data/config.json`，该目录已被 `.gitignore` 忽略
 - 消耗日志存于 `data/usage.jsonl`，余额快照存于 `data/state.json`
+- 安装版数据保存在系统用户目录 `%APPDATA%\Token消费器\data`（每台电脑/每个用户独立）
+
+## 打包分发
+
+```text
+npm run dist
+```
+
+产物在 `release/` 目录：
+
+- `TokenConsumer-Setup-<版本>.exe`：安装版（可改安装目录、生成桌面快捷方式）
+- `TokenConsumer-Portable-<版本>.exe`：便携版（解压即用，无需安装）

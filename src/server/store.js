@@ -49,7 +49,7 @@ class Store extends EventEmitter {
       this.events = [];
     }
     try {
-      this.lastBalance = JSON.parse(fs.readFileSync(this.statePath, 'utf8'));
+      this.lastBalance = JSON.parse(fs.readFileSync(this.statePath, 'utf8').replace(/^\uFEFF/, ''));
     } catch {
       this.lastBalance = null;
     }

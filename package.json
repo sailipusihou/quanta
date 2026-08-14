@@ -6,10 +6,44 @@
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
-    "test": "node --test --test-force-exit \"tests/*.test.js\""
+    "test": "node --test --test-force-exit \"tests/*.test.js\"",
+    "dist": "electron-builder --win"
   },
+  "author": "Token消费器",
   "license": "MIT",
   "devDependencies": {
-    "electron": "^43.4.0"
+    "electron": "^43.4.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.local.tokenconsumer",
+    "productName": "Token消费器",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "win": {
+      "icon": "assets/icon.ico",
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Token消费器",
+      "artifactName": "TokenConsumer-Setup-${version}.exe"
+    },
+    "portable": {
+      "artifactName": "TokenConsumer-Portable-${version}.exe"
+    }
   }
 }

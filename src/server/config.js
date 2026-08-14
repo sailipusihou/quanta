@@ -4,8 +4,16 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..', '..');
-const DATA_DIR = path.join(ROOT, 'data');
-const CONFIG_PATH = path.join(DATA_DIR, 'config.json');
+
+// 打包安装版时由 main.js 注入系统用户数据目录；源码/测试模式回落项目内 data/
+// 注意：必须在每次使用时动态读取，避免 require 时机过早导致目录被定死。
+function getDataDir() {
+  return process.env.TOKEN_DATA_DIR || path.join(ROOT, 'data');
+}
+
+function getConfigPath() {
+  return path.join(getDataDir(), 'config.json');
+}
 
 const DEFAULTS = {
   apiKey: '',
@@ -17,14 +25,14 @@ const DEFAULTS = {
 };
 
 function ensureDataDir() {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+  fs.mkdirSync(getDataDir(), { recursive: true });
 }
 
 function loadConfig() {
   ensureDataDir();
   let saved = {};
   try {
-    saved = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+    saved = JSON.parse(fs.readFileSync(getConfigPath(), 'utf8').replace(/^\uFEFF/, ''));
   } catch {
     saved = {};
   }
@@ -37,7 +45,7 @@ function loadConfig() {
 
 function saveConfig(cfg) {
   ensureDataDir();
-  fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2), 'utf8');
+  fs.writeFileSync(getConfigPath(), JSON.stringify(cfg, null, 2), 'utf8');
 }
 
 function maskKey(key) {
@@ -46,4 +54,4 @@ function maskKey(key) {
   return key.slice(0, 3) + '****' + key.slice(-4);
 }
 
-module.exports = { loadConfig, saveConfig, maskKey, DATA_DIR, CONFIG_PATH, DEFAULTS };
+module.exports = { loadConfig, saveConfig, maskKey, getDataDir, getConfigPath, DEFAULTS };
