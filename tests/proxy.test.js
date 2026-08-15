@@ -255,3 +255,84 @@ test('请求标签：请求头优先，其次按 User-Agent 规则匹配', async
   server.close();
   mock.close();
 });
+
+test('自动省钱路由：请求模型按规则改写，记录 originalModel/routed', async () => {
+  let upstreamModel = null;
+  const mock = await startMockUpstream((req, res) => {
+    let body = '';
+    req.on('data', (c) => (body += c));
+    req.on('end', () => {
+      upstreamModel = JSON.parse(body).model;
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          id: 'x',
+          model: upstreamModel,
+          choices: [{ message: { role: 'assistant', content: 'hi' } }],
+          usage: { prompt_tokens: 10, completion_tokens: 2, total_tokens: 12, prompt_cache_hit_tokens: 0, prompt_cache_miss_tokens: 10 },
+        })
+      );
+    });
+  });
+  const records = [];
+  const { server, port } = await startProxy({
+    port: 0,
+    upstreamBase: `http://127.0.0.1:${mock.address().port}`,
+    apiKey: 'test',
+    keyId: 'k1',
+    onRecord: (e) => records.push(e),
+    modelRoutes: [{ pattern: '^gpt-4o$', to: 'deepseek-v4-flash' }],
+  });
+
+  const r = await post(port, '/chat/completions', { model: 'gpt-4o', messages: [{ role: 'user', content: 'hi' }] });
+  assert.equal(r.status, 200);
+  assert.equal(upstreamModel, 'deepseek-v4-flash', '上游应收到改写后的模型');
+  assert.equal(records.length, 1);
+  assert.equal(records[0].originalModel, 'gpt-4o');
+  assert.equal(records[0].model, 'deepseek-v4-flash');
+  assert.equal(records[0].routed, true);
+
+  server.close();
+  mock.close();
+});
+
+test('失败自动降级：主上游 500 时自动切备用账户，记录 failover 标记', async () => {
+  const records = [];
+  // 主上游：始终 500
+  const bad = await startMockUpstream((req, res) => {
+    req.resume();
+    res.writeHead(500, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ error: { message: 'boom' } }));
+  });
+  // 备用上游：正常返回
+  const good = await startMockUpstream((req, res) => {
+    req.resume();
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        id: 'y',
+        model: 'deepseek-v4-flash',
+        choices: [{ message: { role: 'assistant', content: 'ok' } }],
+        usage: { prompt_tokens: 5, completion_tokens: 1, total_tokens: 6, prompt_cache_hit_tokens: 0, prompt_cache_miss_tokens: 5 },
+      })
+    );
+  });
+  const { server, port } = await startProxy({
+    port: 0,
+    upstreamBase: `http://127.0.0.1:${bad.address().port}`,
+    apiKey: 'bad-key',
+    keyId: 'k1',
+    onRecord: (e) => records.push(e),
+    failoverAccounts: [{ baseUrl: `http://127.0.0.1:${good.address().port}`, apiKey: 'good-key', keyId: 'k2' }],
+  });
+
+  const r = await post(port, '/chat/completions', { model: 'deepseek-v4-flash', messages: [{ role: 'user', content: 'hi' }] });
+  assert.equal(r.status, 200, '客户端应收到备用上游的成功响应');
+  assert.equal(records.length, 1);
+  assert.equal(records[0].failover, true, '应记录降级标记');
+  assert.equal(records[0].keyId, 'k2', '消耗应归属备用 Key');
+
+  server.close();
+  bad.close();
+  good.close();
+});

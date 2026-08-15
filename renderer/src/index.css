@@ -1,0 +1,435 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ============================================================
+   Quanta · 双主题体系
+   默认「纯黑」：OLED 级黑底 + 微光质感（有质感的所有面板）
+   data-theme="aurora"：极光玻璃（深蓝底 + 青/紫光晕）
+   ============================================================ */
+
+/* ---------- 主题 1：纯黑（默认） ---------- */
+:root,
+:root[data-theme='black'] {
+  --radius: 0.75rem;
+
+  --background: #000000;
+  --foreground: #ededf2;
+
+  --card: rgba(255, 255, 255, 0.045);
+  --card-foreground: #ededf2;
+
+  --popover: rgba(10, 10, 14, 0.92);
+  --popover-foreground: #ededf2;
+
+  --primary: #2dd4bf;
+  --primary-foreground: #032019;
+
+  --secondary: rgba(255, 255, 255, 0.07);
+  --secondary-foreground: #d8dbe4;
+
+  --muted: rgba(255, 255, 255, 0.05);
+  --muted-foreground: #9aa1b0;
+
+  --accent: rgba(45, 212, 191, 0.13);
+  --accent-foreground: #8df4e6;
+
+  --destructive: #ff5c6c;
+  --destructive-foreground: #fff;
+
+  --success: #2fd189;
+  --success-foreground: #042318;
+
+  --border: rgba(255, 255, 255, 0.09);
+  --input: rgba(255, 255, 255, 0.13);
+  --ring: #2dd4bf;
+
+  --chart-1: #2dd4bf;
+  --chart-2: #2fd189;
+  --chart-3: #ffb454;
+  --chart-4: #a78bfa;
+  --chart-5: #ff5c6c;
+
+  --sidebar: rgba(5, 5, 8, 0.92);
+  --sidebar-foreground: #ededf2;
+  --sidebar-primary: #2dd4bf;
+  --sidebar-primary-foreground: #032019;
+  --sidebar-accent: rgba(45, 212, 191, 0.11);
+  --sidebar-accent-foreground: #ededf2;
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-ring: #2dd4bf;
+
+  --glass-bg: rgba(255, 255, 255, 0.045);
+  --glass-strong-bg: rgba(8, 8, 12, 0.88);
+  --glass-border: rgba(255, 255, 255, 0.09);
+
+  --font-sans: "Segoe UI", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  --font-mono: "Cascadia Code", "Consolas", "JetBrains Mono", monospace;
+}
+
+/* ---------- 主题 2：极光玻璃 ---------- */
+:root[data-theme='aurora'] {
+  --background: #0a0d14;
+  --foreground: #e8eaf0;
+
+  --card: rgba(255, 255, 255, 0.055);
+  --card-foreground: #e8eaf0;
+
+  --popover: rgba(22, 26, 38, 0.88);
+  --popover-foreground: #e8eaf0;
+
+  --secondary: rgba(255, 255, 255, 0.08);
+  --secondary-foreground: #d4d9e4;
+
+  --muted: rgba(255, 255, 255, 0.06);
+  --muted-foreground: #9aa3b5;
+
+  --accent: rgba(45, 212, 191, 0.14);
+  --accent-foreground: #7ff0e2;
+
+  --border: rgba(255, 255, 255, 0.11);
+  --input: rgba(255, 255, 255, 0.14);
+
+  --sidebar: rgba(14, 17, 26, 0.9);
+  --sidebar-foreground: #e8eaf0;
+  --sidebar-accent: rgba(45, 212, 191, 0.12);
+  --sidebar-border: rgba(255, 255, 255, 0.1);
+
+  --glass-bg: rgba(255, 255, 255, 0.055);
+  --glass-strong-bg: rgba(18, 22, 33, 0.78);
+  --glass-border: rgba(255, 255, 255, 0.11);
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  html {
+    color-scheme: dark;
+  }
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  /* 纯黑主题光晕：极淡微光，突出黑底质感 */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -2;
+    pointer-events: none;
+    background:
+      radial-gradient(720px 480px at 8% -8%, rgba(45, 212, 191, 0.10), transparent 60%),
+      radial-gradient(800px 560px at 94% -6%, rgba(139, 92, 246, 0.09), transparent 60%),
+      radial-gradient(900px 640px at 50% 116%, rgba(45, 212, 191, 0.06), transparent 62%),
+      radial-gradient(520px 380px at 78% 60%, rgba(167, 139, 250, 0.05), transparent 65%),
+      linear-gradient(180deg, #020204 0%, #000000 50%, #030308 100%);
+  }
+  :root[data-theme='aurora'] body::before {
+    background:
+      radial-gradient(820px 560px at 8% -8%, rgba(45, 212, 191, 0.20), transparent 62%),
+      radial-gradient(900px 640px at 94% -6%, rgba(139, 92, 246, 0.18), transparent 62%),
+      radial-gradient(1000px 720px at 50% 114%, rgba(45, 212, 191, 0.10), transparent 60%),
+      radial-gradient(560px 420px at 78% 58%, rgba(167, 139, 250, 0.08), transparent 65%),
+      linear-gradient(180deg, #0b0f1c 0%, #0a0d14 45%, #0d1322 100%);
+  }
+  /* 星幕微光层 */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: radial-gradient(ellipse 90% 60% at 50% 0%, rgba(45, 212, 191, 0.04), transparent 70%);
+  }
+  /* 玻璃质感通用类（跟随主题变量） */
+  .glass {
+    background: var(--glass-bg) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(1.4);
+    backdrop-filter: blur(24px) saturate(1.4);
+    border-color: var(--glass-border) !important;
+  }
+  .glass-strong {
+    background: var(--glass-strong-bg) !important;
+    -webkit-backdrop-filter: blur(32px) saturate(1.5);
+    backdrop-filter: blur(32px) saturate(1.5);
+    border-color: var(--glass-border) !important;
+  }
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.13);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+/* 悬浮小窗：透明背景 + 整窗可拖拽 */
+html.widget-page,
+html.widget-page body {
+  background: transparent !important;
+  overflow: hidden;
+}
+.widget-drag {
+  -webkit-app-region: drag;
+}
+.widget-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+/* 数字等宽，避免跳动 */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 低余额呼吸红边 */
+@keyframes low-pulse {
+  0%,
+  100% {
+    box-shadow: 0 10px 32px rgba(255, 92, 108, 0.18);
+  }
+  50% {
+    box-shadow: 0 10px 40px rgba(255, 92, 108, 0.45);
+  }
+}
+.low-pulse {
+  animation: low-pulse 1.8s ease-in-out infinite;
+}
+
+/* 头像滑动切换器 */
+@keyframes avatar-pop {
+  0% {
+    transform: scale(0.92);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.avatar-pop {
+  animation: avatar-pop 0.25s ease-out;
+}
+
+/* 毛玻璃卡片悬停微光 */
+.glass-hover {
+  transition:
+    background 0.25s ease,
+    box-shadow 0.25s ease,
+    transform 0.25s ease;
+}
+.glass-hover:hover {
+  background: rgba(255, 255, 255, 0.075) !important;
+  box-shadow:
+    0 14px 44px rgba(0, 0, 0, 0.55),
+    0 0 28px rgba(45, 212, 191, 0.09);
+  transform: translateY(-2px);
+}
+
+/* 视图切换过渡（主界面 <-> 设置） */
+@keyframes view-fade {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.view-fade {
+  animation: view-fade 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* 统计数值渐变文字 */
+.text-gradient-teal {
+  background: linear-gradient(135deg, #7ff0e2 0%, #2dd4bf 55%, #a78bfa 120%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* 档位跨格脉冲（秒针停顿感） */
+@keyframes slot-pulse {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  35% {
+    transform: translate(-50%, -50%) scale(1.45);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+.slot-pulse {
+  animation: slot-pulse 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ============ 科技感光带（顶栏） ============ */
+@keyframes tech-flow {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+.tech-line {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(45, 212, 191, 0.55) 28%,
+    rgba(167, 139, 250, 0.55) 50%,
+    rgba(45, 212, 191, 0.55) 72%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: tech-flow 3.6s linear infinite;
+  pointer-events: none;
+}
+
+/* ============ 工作台特效背景 ============ */
+.workbench-fx {
+  position: relative;
+  overflow: hidden;
+}
+/* 极淡网格（中心聚焦） */
+.workbench-fx::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
+  background-size: 28px 28px;
+  -webkit-mask-image: radial-gradient(ellipse 85% 70% at 50% 42%, black 25%, transparent 78%);
+  mask-image: radial-gradient(ellipse 85% 70% at 50% 42%, black 25%, transparent 78%);
+}
+/* 漂移光斑 A（青） */
+@keyframes fx-drift-a {
+  from {
+    transform: translate(-8%, -4%) scale(1);
+  }
+  to {
+    transform: translate(14%, 10%) scale(1.25);
+  }
+}
+.fx-glow-a {
+  position: absolute;
+  top: 6%;
+  left: -6%;
+  width: 360px;
+  height: 360px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(45, 212, 191, 0.13), transparent 65%);
+  filter: blur(34px);
+  animation: fx-drift-a 9s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+/* 漂移光斑 B（紫） */
+@keyframes fx-drift-b {
+  from {
+    transform: translate(6%, 8%) scale(1.1);
+  }
+  to {
+    transform: translate(-12%, -6%) scale(0.92);
+  }
+}
+.fx-glow-b {
+  position: absolute;
+  right: -8%;
+  bottom: 4%;
+  width: 400px;
+  height: 400px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(167, 139, 250, 0.12), transparent 65%);
+  filter: blur(40px);
+  animation: fx-drift-b 11s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+/* 上下扫描光带 */
+@keyframes fx-scan {
+  0% {
+    top: -12%;
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    top: 104%;
+    opacity: 0;
+  }
+}
+.fx-scan {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 110px;
+  background: linear-gradient(180deg, transparent, rgba(45, 212, 191, 0.06), transparent);
+  animation: fx-scan 7s linear infinite;
+  pointer-events: none;
+}
+
+/* ============ 表盘中心光环 ============ */
+@keyframes ring-spin {
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}

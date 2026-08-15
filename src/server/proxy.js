@@ -82,7 +82,7 @@ function extractError(body) {
   return null;
 }
 
-function startProxy({ port, upstreamBase, apiKey, onRecord, tagRules = [] }) {
+function startProxy({ port, upstreamBase, apiKey, keyId = '', onRecord, tagRules = [], modelRoutes = [], failoverAccounts = [] }) {
   const compiledRules = tagRules
     .map((r) => {
       try {
@@ -92,6 +92,17 @@ function startProxy({ port, upstreamBase, apiKey, onRecord, tagRules = [] }) {
       }
     })
     .filter((r) => r && r.label && r.regex);
+
+  // 自动省钱路由规则（请求模型匹配 -> 改写为 to）
+  const compiledRoutes = modelRoutes
+    .map((r) => {
+      try {
+        return { re: new RegExp(String(r.pattern || ''), 'i'), to: String(r.to || '').trim() };
+      } catch {
+        return null;
+      }
+    })
+    .filter((r) => r && r.to);
 
   function resolveTag(req) {
     const header = req.headers['x-token-tag'] || req.headers['x-tag'];
@@ -105,8 +116,8 @@ function startProxy({ port, upstreamBase, apiKey, onRecord, tagRules = [] }) {
 
   return new Promise((resolve, reject) => {
     const server = http.createServer((req, res) => {
-      handleRequest(req, res, { upstreamBase, apiKey, onRecord, resolveTag }).catch((err) => {
-        onRecord(makeEntry(req, { status: 502 }, null, err, Date.now(), false));
+      handleRequest(req, res, { upstreamBase, apiKey, keyId, onRecord, resolveTag, compiledRoutes, failoverAccounts }).catch((err) => {
+        onRecord(makeEntry(req, { status: 502 }, { keyId, error: err.message }, err, Date.now(), false));
         if (!res.headersSent) {
           res.writeHead(502, { 'content-type': 'application/json; charset=utf-8' });
           res.end(JSON.stringify({ error: { message: `代理转发失败: ${err.message}` } }));
@@ -120,49 +131,134 @@ function startProxy({ port, upstreamBase, apiKey, onRecord, tagRules = [] }) {
   });
 }
 
-async function handleRequest(req, res, { upstreamBase, apiKey, onRecord, resolveTag }) {
+// 主请求处理：自动省钱路由（改写模型） + 失败自动降级（多账户重试链）
+async function handleRequest(req, res, { upstreamBase, apiKey, keyId, onRecord, resolveTag, compiledRoutes = [], failoverAccounts = [] }) {
   const startTs = Date.now();
   const rawBody = await collectBody(req);
   const tag = resolveTag(req);
   const isChat = isChatPath(req.url);
-  const { body, json: bodyJson } = isChat ? prepareChatBody(rawBody) : { body: rawBody, json: null };
-  const upstreamUrl = buildUpstreamUrl(req.url, upstreamBase);
+  let { body, json: bodyJson } = isChat ? prepareChatBody(rawBody) : { body: rawBody, json: null };
+  // 自动省钱路由：改写请求模型
+  let originalModel = null;
+  if (isChat && bodyJson) {
+    originalModel = bodyJson.model || null;
+    const route = compiledRoutes.find((r) => originalModel && r.re.test(originalModel));
+    if (route) {
+      bodyJson.model = route.to;
+      body = JSON.stringify(bodyJson);
+    }
+  }
+  const routed = Boolean(originalModel && bodyJson && bodyJson.model !== originalModel);
   const isStream = Boolean(bodyJson && bodyJson.stream);
 
-  const headers = {};
-  for (const [k, v] of Object.entries(req.headers)) {
-    if (SKIP_REQUEST_HEADERS.has(k.toLowerCase())) continue;
-    headers[k] = v;
+  // 降级链：主账户 + 备用账户（按账户顺序）
+  const chain = [{ baseUrl: upstreamBase, apiKey, keyId, label: '主' }, ...failoverAccounts];
+  let lastError = null;
+  let failoverUsed = false;
+  for (let i = 0; i < chain.length; i++) {
+    const target = chain[i];
+    const outcome = await tryForward(req, res, {
+      body,
+      bodyJson,
+      isChat,
+      isStream,
+      startTs,
+      tag,
+      onRecord,
+      target,
+      originalModel,
+      routed,
+      failover: i > 0,
+      canFailover: i < chain.length - 1,
+    });
+    if (outcome.done) return;
+    lastError = outcome.error;
+    if (i === 0) failoverUsed = true;
   }
-  headers.Host = upstreamUrl.host;
-  headers.Authorization = `Bearer ${apiKey}`;
-  headers['Content-Length'] = Buffer.byteLength(body || '');
-  if (body) headers['Content-Type'] = req.headers['content-type'] || 'application/json';
-
-  const lib = upstreamUrl.protocol === 'https:' ? https : http;
-  const outReq = lib.request(upstreamUrl, { method: req.method, headers }, (upRes) => {
-    if (isChat && isStream) {
-      handleStreamResponse(req, res, upRes, { startTs, bodyJson, onRecord, tag });
-    } else {
-      handleBufferedResponse(req, res, upRes, { startTs, bodyJson, onRecord, tag });
-    }
-  });
-
-  outReq.on('error', (err) => {
-    onRecord(makeEntry(req, { status: 0 }, null, err, Date.now() - startTs, false));
-    if (!res.headersSent) {
-      res.writeHead(502, { 'content-type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ error: { message: `连接上游失败: ${err.message}` } }));
-    } else {
-      res.end();
-    }
-  });
-
-  if (body) outReq.write(body);
-  outReq.end();
+  // 全部上游失败
+  onRecord(
+    makeEntry(
+      req,
+      { status: 502 },
+      { keyId, tag, originalModel, routed, failover: failoverUsed, error: lastError ? lastError.message : '全部上游不可用' },
+      lastError,
+      Date.now() - startTs,
+      false
+    )
+  );
+  if (!res.headersSent) {
+    res.writeHead(502, { 'content-type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ error: { message: `代理转发失败: ${lastError ? lastError.message : '全部上游不可用'}` } }));
+  } else {
+    res.end();
+  }
 }
 
-function handleStreamResponse(req, res, upRes, { startTs, bodyJson, onRecord, tag }) {
+// 单次上游尝试：可降级且失败（429/5xx/断连）时返回 {done:false} 继续下一家；
+// 否则正常处理响应（流式/缓冲）返回 {done:true}
+function tryForward(req, res, { body, bodyJson, isChat, isStream, startTs, tag, onRecord, target, originalModel, routed, failover, canFailover }) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const upstreamUrl = buildUpstreamUrl(req.url, target.baseUrl);
+    const headers = {};
+    for (const [k, v] of Object.entries(req.headers)) {
+      if (SKIP_REQUEST_HEADERS.has(k.toLowerCase())) continue;
+      headers[k] = v;
+    }
+    headers.Host = upstreamUrl.host;
+    headers.Authorization = `Bearer ${target.apiKey}`;
+    headers['Content-Length'] = Buffer.byteLength(body || '');
+    if (body) headers['Content-Type'] = req.headers['content-type'] || 'application/json';
+
+    const lib = upstreamUrl.protocol === 'https:' ? https : http;
+    const outReq = lib.request(upstreamUrl, { method: req.method, headers }, (upRes) => {
+      const retryable = upRes.statusCode === 429 || upRes.statusCode >= 500;
+      if (retryable && canFailover) {
+        upRes.resume(); // 丢弃该响应
+        settled = true;
+        return resolve({ done: false, retryable: true, error: new Error(`上游返回 ${upRes.statusCode}`) });
+      }
+      settled = true;
+      const meta = { startTs, tag, onRecord, keyId: target.keyId, originalModel, routed, failover };
+      if (isChat && isStream) {
+        handleStreamResponse(req, res, upRes, meta);
+      } else {
+        handleBufferedResponse(req, res, upRes, meta);
+      }
+      resolve({ done: true });
+    });
+
+    outReq.on('error', (err) => {
+      if (settled) return;
+      settled = true;
+      if (canFailover) {
+        return resolve({ done: false, retryable: true, error: err });
+      }
+      onRecord(
+        makeEntry(
+          req,
+          { status: 0 },
+          { keyId: target.keyId, tag, originalModel, routed, failover, error: err.message },
+          err,
+          Date.now() - startTs,
+          false
+        )
+      );
+      if (!res.headersSent) {
+        res.writeHead(502, { 'content-type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: { message: `连接上游失败: ${err.message}` } }));
+      } else {
+        res.end();
+      }
+      resolve({ done: true });
+    });
+
+    if (body) outReq.write(body);
+    outReq.end();
+  });
+}
+
+function handleStreamResponse(req, res, upRes, { startTs, bodyJson, onRecord, tag, keyId, originalModel, routed, failover }) {
   let usage = null;
   let model = (bodyJson && bodyJson.model) || null;
   let usageRecorded = false;
@@ -192,7 +288,7 @@ function handleStreamResponse(req, res, upRes, { startTs, bodyJson, onRecord, ta
     }
   const cost = computeCost(model, usage, Date.now());
     onRecord(
-      makeEntry(req, { status: upRes.statusCode || 200 }, { model, usage, cost, error, tag }, null, Date.now() - startTs, true)
+      makeEntry(req, { status: upRes.statusCode || 200 }, { model, usage, cost, error, tag, keyId, originalModel, routed, failover }, null, Date.now() - startTs, true)
     );
   };
 
@@ -235,7 +331,7 @@ function handleStreamResponse(req, res, upRes, { startTs, bodyJson, onRecord, ta
   upRes.pipe(transform).pipe(res);
 }
 
-function handleBufferedResponse(req, res, upRes, { startTs, bodyJson, onRecord, tag }) {
+function handleBufferedResponse(req, res, upRes, { startTs, bodyJson, onRecord, tag, keyId, originalModel, routed, failover }) {
   const chunks = [];
   upRes.on('data', (c) => chunks.push(c));
   upRes.on('end', () => {
@@ -254,7 +350,7 @@ function handleBufferedResponse(req, res, upRes, { startTs, bodyJson, onRecord, 
       const error = extractError(json);
       const cost = computeCost(model, usage, Date.now());
       onRecord(
-        makeEntry(req, { status: upRes.statusCode || 200 }, { model, usage, cost, error, tag }, null, Date.now() - startTs, false)
+        makeEntry(req, { status: upRes.statusCode || 200 }, { model, usage, cost, error, tag, keyId, originalModel, routed, failover }, null, Date.now() - startTs, false)
       );
     }
     const respondHeaders = { ...upRes.headers };
@@ -264,7 +360,7 @@ function handleBufferedResponse(req, res, upRes, { startTs, bodyJson, onRecord, 
     res.end(body);
   });
   upRes.on('error', (err) => {
-    onRecord(makeEntry(req, { status: 0 }, null, err, Date.now() - startTs, false));
+    onRecord(makeEntry(req, { status: 0 }, { keyId }, err, Date.now() - startTs, false));
     if (!res.headersSent) {
       res.writeHead(502, { 'content-type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ error: { message: `上游中断: ${err.message}` } }));
@@ -295,7 +391,11 @@ function makeEntry(req, resInfo, extra, err, ms, stream) {
     ms,
     stream: Boolean(stream),
     model: e.model || null,
+    originalModel: e.originalModel || null,
+    routed: Boolean(e.routed),
+    failover: Boolean(e.failover),
     tag: e.tag || null,
+    keyId: e.keyId || null,
     usage,
     cost: e.cost ? e.cost.amount : 0,
     costRates: e.cost ? e.cost.rates : null,

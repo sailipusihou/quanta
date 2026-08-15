@@ -39,6 +39,8 @@ test('CSV 导出：表头、转义、金额格式化', () => {
     {
       ts: Date.now(),
       model: 'deepseek-v4-flash',
+      keyId: 'k1',
+      tag: 'chatbox',
       status: 200,
       usage: { promptTokens: 10, completionTokens: 2, cacheHit: 0, cacheMiss: 10 },
       cost: 0.000014,
@@ -48,8 +50,10 @@ test('CSV 导出：表头、转义、金额格式化', () => {
     },
   ]);
   const lines = csv.split('\r\n');
-  assert.equal(lines[0], '时间,模型,状态,输入Token,输出Token,缓存命中,缓存未命中,金额(元),耗时(ms),流式,错误');
+  assert.equal(lines[0], '时间,模型,API Key,标签,状态,输入Token,输出Token,缓存命中,缓存未命中,金额(元),耗时(ms),流式,错误');
   assert.ok(lines[1].includes('deepseek-v4-flash'));
+  assert.ok(lines[1].includes('k1'));
+  assert.ok(lines[1].includes('chatbox'));
   assert.ok(lines[1].includes('0.000014'));
   assert.ok(lines[1].includes('是'));
 });

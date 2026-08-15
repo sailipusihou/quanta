@@ -1,4 +1,4 @@
-# Spec: Token消费器（桌面实时 Token/余额监控）
+# Spec: Quanta（桌面实时 Token/余额监控）
 
 ## Objective
 

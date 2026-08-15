@@ -3,11 +3,27 @@
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
-const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, dialog, Notification, shell } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, dialog, Notification, shell, screen } = require('electron');
+
+// 品牌更名为 Quanta 后显式固定用户数据目录（不随 productName 漂移），
+// 并在首次启动时把旧品牌（Token消费器）的数据一次性迁移过来。
+const APP_NAME = 'Quanta';
+const userDataDir = path.join(app.getPath('appData'), APP_NAME);
+const legacyDataDir = path.join(app.getPath('appData'), 'Token消费器', 'data');
+app.setPath('userData', userDataDir);
 
 // 必须在 require('./server') 之前设置：config.js 会在加载时读取数据目录，
 // 打包版要写入系统用户目录而不是只读的 app.asar。
-process.env.TOKEN_DATA_DIR = path.join(app.getPath('userData'), 'data');
+process.env.TOKEN_DATA_DIR = path.join(userDataDir, 'data');
+
+// 一次性迁移旧版数据（仅当新目录不存在且旧目录存在时）
+try {
+  if (!fs.existsSync(process.env.TOKEN_DATA_DIR) && fs.existsSync(legacyDataDir)) {
+    fs.cpSync(legacyDataDir, process.env.TOKEN_DATA_DIR, { recursive: true });
+  }
+} catch (err) {
+  console.error('数据迁移失败:', err.message);
+}
 
 const { createTokenServer } = require('./server');
 const { checkForUpdate } = require('./server/update');
@@ -27,10 +43,10 @@ const UI_TEXT = {
     notifyTokens: 'Token',
     notifyCost: '费用',
     notifyError: '请求失败',
-    alertTitle: 'Token消费器 · 余额预警',
+    alertTitle: 'Quanta · 余额预警',
     alertBody: '账户「{name}」余额 {balance} 元，已低于预警线 {threshold} 元',
     updateTitle: '发现新版本',
-    updateBody: 'Token消费器 {version} 已发布：{url}',
+    updateBody: 'Quanta {version} 已发布：{url}',
   },
   en: {
     notifyRequest: 'Request done',
@@ -38,10 +54,10 @@ const UI_TEXT = {
     notifyTokens: 'Tokens',
     notifyCost: 'Cost',
     notifyError: 'Request failed',
-    alertTitle: 'Token Monitor · Balance Alert',
+    alertTitle: 'Quanta · Balance Alert',
     alertBody: 'Account "{name}" balance {balance} CNY is below threshold {threshold} CNY',
     updateTitle: 'New version available',
-    updateBody: 'Token Monitor {version} released: {url}',
+    updateBody: 'Quanta {version} released: {url}',
   },
 };
 
@@ -57,7 +73,9 @@ function formatText(template, vars) {
 
 const ICON_PATH = path.join(__dirname, '..', 'assets', 'icon.png');
 const PRELOAD = path.join(__dirname, 'preload.js');
-const STARTUP_LOG = path.join(os.tmpdir(), 'token-consumer-startup.log');
+// React 渲染层构建产物（renderer/dist，由 `npm run build:renderer` 生成）
+const RENDERER_DIR = path.join(__dirname, '..', 'renderer', 'dist');
+const STARTUP_LOG = path.join(os.tmpdir(), 'quanta-startup.log');
 
 function logStartup(msg) {
   try {
@@ -116,8 +134,32 @@ function showWidget() {
     createWidget();
     return;
   }
+  ensureWidgetVisible(widgetWindow);
   widgetWindow.show();
   widgetWindow.setAlwaysOnTop(true, 'screen-saver');
+}
+
+// 小窗显示前校准：若窗口中心不在「鼠标所在屏幕」内，则拉回该屏幕中央。
+// 解决显示器布局变化（拔副屏/分辨率变化）后小窗跑到屏幕外/其他屏的问题。
+function ensureWidgetVisible(w) {
+  if (!w || w.isDestroyed()) return;
+  try {
+    const b = w.getBounds();
+    const cx = b.x + b.width / 2;
+    const cy = b.y + b.height / 2;
+    const target = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+    const a = target.workArea;
+    const inside =
+      cx >= a.x && cx < a.x + a.width && cy >= a.y && cy < a.y + a.height;
+    if (inside) return;
+    const { width, height } = server ? server.config.widget : { width: 360, height: 148 };
+    const nx = a.x + Math.round((a.width - (width || 360)) / 2);
+    const ny = a.y + Math.round((a.height - (height || 148)) / 2);
+    w.setPosition(nx, ny);
+    server?.updateConfig({ widget: { ...server.config.widget, x: nx, y: ny } });
+  } catch {
+    /* 忽略校准错误 */
+  }
 }
 
 function createWidget() {
@@ -139,8 +181,9 @@ function createWidget() {
     webPreferences: { preload: PRELOAD, contextIsolation: true, nodeIntegration: false },
     icon: ICON_PATH,
   });
-  widgetWindow.setAlwaysOnTop(true, 'screen-saver');
-  widgetWindow.loadFile(path.join(__dirname, 'renderer', 'widget.html'));
+  widgetWindow.setAlwaysOnTop(cfg.widget.alwaysOnTop !== false, 'screen-saver');
+  ensureWidgetVisible(widgetWindow);
+  widgetWindow.loadFile(path.join(RENDERER_DIR, 'widget.html'));
   widgetWindow.once('ready-to-show', () => widgetWindow.show());
   widgetWindow.on('closed', () => {
     widgetWindow = null;
@@ -167,13 +210,14 @@ function createDashboard() {
     height: 780,
     minWidth: 940,
     minHeight: 640,
-    title: 'Token消费器',
+    title: 'Quanta',
     icon: ICON_PATH,
-    autoHideMenuBar: true,
-    backgroundColor: '#0f1117',
+    // 无边框：自绘玻璃标题栏（消除系统白色条，融入毛玻璃设计）
+    frame: false,
+    backgroundColor: '#0a0d14',
     webPreferences: { preload: PRELOAD, contextIsolation: true, nodeIntegration: false },
   });
-  mainWindow.loadFile(path.join(__dirname, 'renderer', 'dashboard.html'));
+  mainWindow.loadFile(path.join(RENDERER_DIR, 'dashboard.html'));
   const capturePath = process.env.TOKEN_CAPTURE;
   if (capturePath) {
     mainWindow.webContents.once('did-finish-load', () => {
@@ -196,7 +240,7 @@ function createDashboard() {
 
 function createTray() {
   tray = new Tray(nativeImage.createFromPath(ICON_PATH));
-  tray.setToolTip('Token消费器');
+  tray.setToolTip('Quanta');
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: '打开仪表盘', click: () => createDashboard() },
@@ -220,7 +264,22 @@ function registerIpc() {
     if (Array.isArray(patch.accounts)) {
       patch.accounts = patch.accounts.map((a) => {
         const existing = server.config.accounts.find((x) => x.id === a.id);
-        return { ...existing, ...a, apiKey: a.apiKey ? a.apiKey : existing ? existing.apiKey : '' };
+        const merged = { ...existing, ...a, apiKey: a.apiKey && !String(a.apiKey).includes('****') ? a.apiKey : existing ? existing.apiKey : '' };
+        // 平台登录 Token：掩码（****）表示未修改
+        if (a.platformToken !== undefined) {
+          merged.platformToken = a.platformToken && !String(a.platformToken).includes('****') ? a.platformToken : existing ? existing.platformToken || '' : '';
+        }
+        // 多 Key 合并：掩码值（****）表示未修改，保留原 Key
+        if (Array.isArray(a.apiKeys)) {
+          merged.apiKeys = a.apiKeys
+            .map((k) => {
+              const old = existing && Array.isArray(existing.apiKeys) ? existing.apiKeys.find((x) => x.id === k.id) : null;
+              const isMasked = String(k.key || '').includes('****');
+              return { id: k.id, label: k.label || '', key: isMasked ? (old ? old.key : '') : k.key || '' };
+            })
+            .filter((k) => k.key || k.label);
+        }
+        return merged;
       });
     }
     const cfg = server.updateConfig(patch);
@@ -236,6 +295,73 @@ function registerIpc() {
     await server.switchAccount(id);
     pushState();
     return server.snapshot().config;
+  });
+  ipcMain.handle('model:switch', async (_e, accountId, model) => {
+    await server.switchModel(accountId, model);
+    pushState();
+    return server.snapshot().config;
+  });
+  ipcMain.handle('models:fetch', async () => {
+    const r = await server.refreshAccountModels();
+    pushState();
+    return r;
+  });
+  ipcMain.handle('price:compare', async (_e, promptTokens, completionTokens, force) => {
+    return server.priceCompare(promptTokens, completionTokens, Boolean(force));
+  });
+  ipcMain.handle('usage:fetch', async () => {
+    server.officialMonth = null; // 清缓存强制刷新
+    server.officialToday = null; // 今日实时数据一并刷新
+    server.officialTrend = null; // 趋势数据一并刷新
+    const r = await Promise.all([server.fetchOfficialMonthUsage(), server.fetchOfficialToday(), server.fetchOfficialTrend()]);
+    pushState();
+    return r[0];
+  });
+  ipcMain.handle('calibration:save', (_e, cost, tokens) => {
+    const r = server.saveTodayCalibration(cost, tokens);
+    pushState();
+    return r;
+  });
+  // ---- 用户档案 ----
+  ipcMain.handle('profile:list', () => server.snapshot().profiles);
+  ipcMain.handle('profile:create', (_e, data) => {
+    const p = server.createProfile(data);
+    pushState();
+    return p;
+  });
+  ipcMain.handle('profile:update', (_e, id, patch) => {
+    const p = server.updateProfile(id, patch);
+    pushState();
+    return p;
+  });
+  ipcMain.handle('profile:delete', async (_e, id) => {
+    await server.deleteProfile(id);
+    pushState();
+    return true;
+  });
+  ipcMain.handle('profile:switch', async (_e, id) => {
+    await server.switchProfile(id);
+    pushState();
+    return server.snapshot().profiles;
+  });
+  ipcMain.handle('profile:pickAvatar', async (_e, profileId) => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: '选择头像图片',
+      filters: [{ name: '图片', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'] }],
+      properties: ['openFile'],
+    });
+    if (result.canceled || !result.filePaths.length) return { saved: false, reason: '已取消' };
+    try {
+      const src = result.filePaths[0];
+      const ext = (path.extname(src) || '.png').toLowerCase();
+      const fileName = `${profileId}-${Date.now()}${ext}`;
+      fs.copyFileSync(src, path.join(server.profiles.avatarsDir, fileName));
+      const p = server.updateProfile(profileId, { avatar: fileName });
+      pushState();
+      return { saved: true, avatar: p.avatar };
+    } catch (err) {
+      return { saved: false, reason: err.message };
+    }
   });
   ipcMain.handle('recharge:add', (_e, amount, note) => {
     const entry = server.addRecharge(amount, note);
@@ -272,11 +398,32 @@ function registerIpc() {
     return true;
   });
   ipcMain.handle('window:openDashboard', () => createDashboard());
+  ipcMain.handle('window:showWidget', () => showWidget());
+  ipcMain.handle('widget:setAlwaysOnTop', (_e, enabled) => {
+    if (!server) return false;
+    server.updateConfig({ widget: { ...server.config.widget, alwaysOnTop: Boolean(enabled) } });
+    if (widgetWindow && !widgetWindow.isDestroyed()) {
+      widgetWindow.setAlwaysOnTop(Boolean(enabled), 'screen-saver');
+    }
+    return Boolean(enabled);
+  });
   ipcMain.handle('window:hide', () => {
     const w = BrowserWindow.getFocusedWindow();
     if (w && w !== mainWindow) w.hide();
   });
   ipcMain.handle('window:minimize', () => BrowserWindow.getFocusedWindow()?.minimize());
+  ipcMain.handle('window:maximizeToggle', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (mainWindow.isMaximized()) mainWindow.unmaximize();
+      else mainWindow.maximize();
+      return mainWindow.isMaximized();
+    }
+    return false;
+  });
+  ipcMain.handle('window:close', () => {
+    // 关闭主窗口 -> 驻留托盘（托盘菜单可重新打开）
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.close();
+  });
   ipcMain.handle('app:quit', () => app.quit());
   ipcMain.on('widget:move', (_e, x, y) => {
     if (server) server.updateConfig({ widget: { ...server.config.widget, x, y } });
@@ -300,6 +447,9 @@ if (!gotLock) {
       if (e.kind === 'request') maybeNotifyRequest(e);
     });
     server.on('started', schedulePush);
+    server.on('prices_synced', schedulePush);
+    server.on('models_updated', schedulePush);
+    server.on('usage_updated', schedulePush);
     server.on('alert', (message) => {
       if (Notification.isSupported()) {
         const t = formatText(langText('alertBody'), {
@@ -315,7 +465,7 @@ if (!gotLock) {
       logStartup('server started on port ' + server.port + ', balance: ' + JSON.stringify(server.store.lastBalance));
     } catch (err) {
       logStartup('server start FAILED: ' + err.stack);
-      dialog.showErrorBox('Token消费器启动失败', err.message);
+      dialog.showErrorBox('Quanta启动失败', err.message);
       app.quit();
       return;
     }

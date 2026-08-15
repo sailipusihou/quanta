@@ -1,7 +1,7 @@
 'use strict';
 
 function toCsv(rows) {
-  const header = ['时间', '模型', '状态', '输入Token', '输出Token', '缓存命中', '缓存未命中', '金额(元)', '耗时(ms)', '流式', '错误'];
+  const header = ['时间', '模型', 'API Key', '标签', '状态', '输入Token', '输出Token', '缓存命中', '缓存未命中', '金额(元)', '耗时(ms)', '流式', '错误'];
   const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
   const lines = [header.join(',')];
   for (const r of rows) {
@@ -10,6 +10,8 @@ function toCsv(rows) {
       [
         time,
         r.model || '',
+        r.keyId || '',
+        r.tag || '',
         r.status,
         r.usage.promptTokens,
         r.usage.completionTokens,

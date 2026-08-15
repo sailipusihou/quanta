@@ -1,6 +1,9 @@
 node_modules/
 data/
 release/
+renderer/dist/
+scripts/console-js/
+verify-btns.cjs
 *.log
 .DS_Store
 Thumbs.db
