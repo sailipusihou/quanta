@@ -38,7 +38,7 @@ const DEFAULTS = {
   requestNotify: 'all', // off | error | all
   language: 'zh', // zh | en
   theme: 'black', // black(纯黑) | aurora(极光玻璃)
-  updateFeedUrl: '',
+  updateFeedUrl: 'https://api.github.com/repos/sailipusihou/quanta/releases/latest',
   tagRules: [],
   // 官网控制台校准值（用户手动录入：今日消耗/Token，按日期生效）
   todayCalibration: { date: '', cost: null, tokens: null },

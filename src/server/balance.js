@@ -7,11 +7,16 @@ function requestJson(url, { apiKey, timeoutMs = 15000 }) {
   return new Promise((resolve, reject) => {
     const u = new URL(url);
     const lib = u.protocol === 'https:' ? https : http;
+    const headers = {
+      Accept: 'application/json',
+      'User-Agent': 'Quanta/0.1.0 (desktop app)',
+    };
+    if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
     const req = lib.request(
       u,
       {
         method: 'GET',
-        headers: { Authorization: `Bearer ${apiKey}`, Accept: 'application/json' },
+        headers,
         timeout: timeoutMs,
       },
       (res) => {
