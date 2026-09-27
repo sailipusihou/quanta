@@ -12,6 +12,8 @@ contextBridge.exposeInMainWorld('api', {
   priceCompare: (promptTokens, completionTokens, force) => ipcRenderer.invoke('price:compare', promptTokens, completionTokens, force),
   fetchOfficialUsage: () => ipcRenderer.invoke('usage:fetch'),
   saveCalibration: (cost, tokens) => ipcRenderer.invoke('calibration:save', cost, tokens),
+  licenseStatus: () => ipcRenderer.invoke('license:status'),
+  activateLicense: (code) => ipcRenderer.invoke('license:activate', code),
   listProfiles: () => ipcRenderer.invoke('profile:list'),
   createProfile: (data) => ipcRenderer.invoke('profile:create', data),
   updateProfile: (id, patch) => ipcRenderer.invoke('profile:update', id, patch),

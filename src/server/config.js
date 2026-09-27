@@ -48,6 +48,8 @@ const DEFAULTS = {
   failover: { enabled: false },
   autoStart: false,
   widget: { x: null, y: null, width: 360, height: 148, alwaysOnTop: true },
+  // 本地核销码授权：enforce=false 时不做拦截（仅供卖家自测，界面上不提供开关）
+  license: { enforce: true },
 };
 
 function ensureDataDir() {
@@ -77,6 +79,7 @@ function loadConfig() {
       return merged;
     }),
     widget: { ...DEFAULTS.widget, ...(saved.widget || {}) },
+    license: { ...DEFAULTS.license, ...(saved.license || {}) },
   };
   // 旧版本配置迁移：顶层 apiKey/upstreamBase 并入首个账户
   if (!saved.accounts || !saved.accounts.length) {

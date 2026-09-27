@@ -15,6 +15,7 @@ import { OnboardDialog } from '@/components/dashboard/OnboardDialog';
 import { HelpDialog } from '@/components/dashboard/HelpDialog';
 import { ProfileDialog } from '@/components/dashboard/ProfileDialog';
 import { Workbench } from '@/components/dashboard/Workbench';
+import { LicenseDialog } from '@/components/dashboard/LicenseDialog';
 import { Starfield } from '@/components/Starfield';
 import { TitleBar } from '@/components/TitleBar';
 import { AlertTriangle, Server, ReceiptText, Database } from 'lucide-react';
@@ -118,6 +119,11 @@ export default function App() {
 
       {/* 自绘玻璃标题栏（替代系统白条） */}
       <TitleBar state={state} />
+
+      {/* 未核销 / 授权到期：拦截式激活弹窗（不可关闭） */}
+      {state.license && !state.license.ok && (
+        <LicenseDialog license={state.license} blocking onActivated={onSaved} />
+      )}
 
       <div className="relative z-10">
         {view === 'settings' ? (

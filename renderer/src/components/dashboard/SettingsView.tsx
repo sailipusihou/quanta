@@ -27,8 +27,10 @@ import {
   ChevronRight,
   LayoutDashboard,
   Shuffle,
+  ShieldCheck,
 } from 'lucide-react';
 import { AvatarCircle } from './ProfileSwitcher';
+import { LicenseDialog } from './LicenseDialog';
 
 interface Props {
   state: AppSnapshot;
@@ -79,6 +81,7 @@ export function SettingsView({ state, onClose, onSaved }: Props) {
   const [updateResult, setUpdateResult] = useState<{ text: string; link?: string } | null>(null);
   const [calCost, setCalCost] = useState('');
   const [calTokens, setCalTokens] = useState('');
+  const [licenseOpen, setLicenseOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const presetRef = useRef<HTMLSelectElement>(null);
 
@@ -127,6 +130,10 @@ export function SettingsView({ state, onClose, onSaved }: Props) {
         name: preset.name,
         baseUrl: preset.baseUrl,
         apiKey: '',
+        apiKeys: [],
+        platformToken: '',
+        hasPlatformToken: false,
+        hasApiKey: false,
         _keyInput: '',
         _tokenInput: '',
         _keys: [],
@@ -790,6 +797,37 @@ export function SettingsView({ state, onClose, onSaved }: Props) {
                 )}
               </div>
               <Separator />
+              {/* 授权（本地核销码） */}
+              <div className="space-y-2 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck
+                      className={cn('size-4', state.license?.ok ? 'text-[#2fd189]' : 'text-[#ffb454]')}
+                    />
+                    <Label className="text-sm">{t('licenseSection')}</Label>
+                    {state.license?.tierLabel && (
+                      <Badge variant="secondary" className="text-[10px] font-normal">
+                        {state.license.tierLabel}
+                      </Badge>
+                    )}
+                  </div>
+                  <Button variant="secondary" size="sm" className="h-8" onClick={() => setLicenseOpen(true)}>
+                    {t('licenseManage')}
+                  </Button>
+                </div>
+                <p className="text-[11px] leading-relaxed text-muted-foreground/70">
+                  {state.license?.state === 'active' && state.license.lifetime
+                    ? t('licenseLifetimeHint')
+                    : state.license?.state === 'active' && state.license.daysLeft != null
+                      ? `${t('licenseDaysLeft')} ${state.license.daysLeft} ${t('days')}${
+                          state.license.expiresAt ? ` · ${t('licenseExpiresAt')} ${new Date(state.license.expiresAt).toLocaleString()}` : ''
+                        }`
+                      : state.license?.message || t('licenseNeedCode')}
+                  {' · '}
+                  {t('licenseSectionHint')}
+                </p>
+              </div>
+              <Separator />
               {/* 今日消耗校准（官网控制台值） */}
               <div className="space-y-2 rounded-xl border border-[#ffb454]/20 bg-[#ffb454]/[0.04] p-3">
                 <Label className="flex items-center gap-2 text-sm">
@@ -967,6 +1005,14 @@ export function SettingsView({ state, onClose, onSaved }: Props) {
           )}
         </div>
       </div>
+
+      {/* 授权管理弹窗（非拦截模式） */}
+      <LicenseDialog
+        license={state.license}
+        open={licenseOpen}
+        onOpenChange={setLicenseOpen}
+        onActivated={onSaved}
+      />
     </div>
   );
 }

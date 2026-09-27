@@ -9,6 +9,7 @@ const { defaultPerTokenCost, rateFor, compareCost, setOfficialRates } = require(
 const { fetchLatestPrices, fetchDeepSeekOfficialPrices } = require('./prices');
 const { getDataDir, loadConfig, saveConfig, maskKey, DEFAULTS, resolveApiKey } = require('./config');
 const { createProfileStore } = require('./profiles');
+const license = require('./license');
 
 const DEFAULT_PER_TOKEN_CNY = 2.5e-6;
 
@@ -391,6 +392,23 @@ class TokenServer extends EventEmitter {
     return r;
   }
 
+  // ===== 本地核销码授权 =====
+  // 当前授权状态（含是否强制校验）
+  licenseStatus() {
+    const st = license.status();
+    const enforce = this.config.license ? this.config.license.enforce !== false : true;
+    return { ...st, enforced: enforce, ok: !enforce || st.state === 'active' };
+  }
+
+  // 核销（激活）一个新的核销码
+  activateLicense(code) {
+    const r = license.activate(code);
+    if (r.ok) {
+      this.emit('license_changed', r.tier);
+    }
+    return r.ok ? { ok: true, status: this.licenseStatus() } : { ok: false, reason: r.reason, message: license.reasonText(r.reason), existingTier: r.tier || null };
+  }
+
   // 保存官网控制台校准值（今日消耗/Token）
   saveTodayCalibration(cost, tokens) {
     const now = new Date();
@@ -578,6 +596,7 @@ class TokenServer extends EventEmitter {
       officialMonth,
       officialToday,
       officialTrend,
+      license: this.licenseStatus(),
       balanceError: this.store.lastBalanceError,
       estimatedTokens: this.estimateRemainingTokens(),
       stats: {

@@ -4,6 +4,9 @@ release/
 renderer/dist/
 scripts/console-js/
 verify-btns.cjs
+# 授权签名密钥与核销码生成工具：绝不能进公开仓库，否则任何人都能伪造核销码
+src/server/license.secret.js
+scripts/gen-license.js
 *.log
 .DS_Store
 Thumbs.db

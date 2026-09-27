@@ -199,6 +199,22 @@ export interface AppSnapshot {
   server: { running: boolean; port: number | null };
   config: AppConfig;
   pricing: { period: string; accountName: string; priceSource: string };
+  // 本地核销码授权状态
+  license: {
+    state: 'none' | 'active' | 'expired' | 'mismatch' | 'clock' | 'invalid';
+    enforced: boolean;
+    ok: boolean;
+    tier: 'd7' | 'm30' | 'life' | null;
+    tierLabel: string | null;
+    activatedAt: number | null;
+    expiresAt: number | null;
+    daysLeft: number | null;
+    hoursLeft: number | null;
+    lifetime?: boolean;
+    codeMasked: string | null;
+    reason?: string;
+    message?: string;
+  };
 }
 
 export interface UpdateCheckResult {
@@ -246,6 +262,10 @@ export interface Api {
     error?: string | null;
   } | null>;
   saveCalibration(cost: number | null, tokens: number | null): Promise<unknown>;
+  licenseStatus(): Promise<AppSnapshot['license']>;
+  activateLicense(code: string): Promise<
+    { ok: true; status: AppSnapshot['license'] } | { ok: false; reason: string; message: string; existingTier: string | null }
+  >;
   listProfiles(): Promise<unknown>;
   createProfile(data: Record<string, unknown>): Promise<Profile>;
   updateProfile(id: string, patch: Record<string, unknown>): Promise<Profile | null>;
@@ -257,10 +277,13 @@ export interface Api {
   checkUpdate(): Promise<UpdateCheckResult>;
   openExternal(url: string): Promise<void>;
   clearData(): Promise<boolean>;
+  openDashboard(): Promise<void>;
   showWidget(): Promise<void>;
   setWidgetAlwaysOnTop(enabled: boolean): Promise<boolean>;
   hideWidget(): Promise<void>;
   minimize(): Promise<void>;
+  maximizeToggle(): Promise<boolean>;
+  closeWindow(): Promise<void>;
   quit(): Promise<void>;
   notifyWidgetMove(x: number, y: number): void;
   onState(cb: (s: AppSnapshot) => void): void;

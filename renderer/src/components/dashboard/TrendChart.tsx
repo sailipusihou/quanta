@@ -18,9 +18,12 @@ export function TrendChart({ days, official }: Props) {
 
   // 官网口径优先（与控制台趋势图同源）；失败时回退本地代理记录
   const officialDays = official && official.ok && official.days && official.days.length ? official.days : null;
-  const baseSeries = officialDays ? officialDays : days;
-  const series = baseSeries.slice(-range);
-  const values = series.map((d) => (mode === 'cost' ? d.cost : (d as { tokens?: number }).tokens ?? d.totalTokens));
+  // 统一成同一结构，便于两种数据源共用渲染
+  const points = officialDays
+    ? officialDays.map((d) => ({ start: d.start, cost: d.cost, tokens: d.tokens }))
+    : (days || []).map((d) => ({ start: d.start, cost: d.cost, tokens: d.totalTokens }));
+  const series = points.slice(-range);
+  const values = series.map((d) => (mode === 'cost' ? d.cost : d.tokens));
   const max = Math.max(...values, 1e-9);
   const fmt = mode === 'cost' ? fmtMoney : fmtTokens;
   const dense = range > 7;

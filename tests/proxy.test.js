@@ -4,6 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('http');
 const { startProxy } = require('../src/server/proxy');
+const { computeCost } = require('../src/server/pricing');
 
 function startMockUpstream(handler) {
   return new Promise((resolve) => {
@@ -89,8 +90,10 @@ test('非流式转发：解析 usage 并记录费用', async () => {
   assert.equal(rec.usage.totalTokens, 120);
   assert.equal(rec.usage.cacheHit, 40);
   assert.equal(rec.usage.cacheMiss, 60);
-  // 40 hit*0.02 + 60 miss*1 + 20 out*2（元/百万）＝ 0.0001008
-  assert.ok(Math.abs(rec.cost - 0.0001008) < 1e-12);
+  // 金额按当前生效的计价周期计算（2026-08-17 起为峰谷定价，测试不再硬编码旧平价）
+  const expected = computeCost('deepseek-v4-flash', { cacheHit: 40, cacheMiss: 60, completion: 20 }).amount;
+  assert.ok(expected > 0);
+  assert.ok(Math.abs(rec.cost - expected) < 1e-12);
   assert.equal(rec.status, 200);
   assert.equal(JSON.parse(upstreamBody).model, 'deepseek-v4-flash');
 

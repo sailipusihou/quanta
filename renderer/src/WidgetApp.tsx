@@ -60,8 +60,10 @@ export function WidgetApp() {
       <div className="flex items-center gap-1.5 text-xs">
         <span className={cn('size-2 rounded-full shadow-[0_0_8px]', low ? 'bg-[#ff5c6c] shadow-[#ff5c6c]/90' : 'bg-[#2fd189] shadow-[#2fd189]/80')} />
         <span className="font-semibold">{platformLabel}</span>
-        <span className="ml-auto text-[11px] text-muted-foreground/70">
-          {t('widgetProxy')} {state.server.port || state.config.proxyPort}
+        <span className={cn('ml-auto text-[11px]', state.license && !state.license.ok ? 'text-[#ffb454]' : 'text-muted-foreground/70')}>
+          {state.license && !state.license.ok
+            ? t('licenseStateNone')
+            : `${t('widgetProxy')} ${state.server.port || state.config.proxyPort}`}
         </span>
         <button
           className="widget-no-drag flex size-5 items-center justify-center rounded-md text-muted-foreground/70 transition-colors hover:bg-white/10 hover:text-white"

@@ -87,6 +87,59 @@ npm run dist        # 产物在 release/
 - 消耗日志存于 `data/usage.jsonl`，余额快照存于 `data/state.json`
 - 安装版数据保存在系统用户目录 `%APPDATA%\Quanta\data`（每台电脑/每个用户独立）
 
+## 本地核销码（授权）
+
+应用使用**离线核销码**授权，三档可选：
+
+| 档位 | 有效期 | 生成命令 |
+|---|---|---|
+| 七天版 | 激活起 7 天 | `node scripts/gen-license.js 7d 5` |
+| 一个月版 | 激活起 30 天 | `node scripts/gen-license.js 30d` |
+| 买断版 | 永久 | `node scripts/gen-license.js life` |
+
+（也可用 `npm run license:gen -- 7d 5`）
+
+> **卖家首次配置（重要）**：签名密钥与生成工具**不在公开仓库里**（否则任何人都能伪造核销码）。
+> 请自行创建密钥文件：
+>
+> ```powershell
+> # 生成一个随机密钥
+> node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+> # 复制模板并填入该密钥
+> Copy-Item src\server\license.secret.example.js src\server\license.secret.js
+> ```
+>
+> 这两个文件（`src/server/license.secret.js`、`scripts/gen-license.js`）已被 `.gitignore` 忽略。
+> 密钥务必自行备份：丢失后已发出的核销码将无法校验。
+> 也可以用环境变量 `QUANTA_LICENSE_SECRET=<64位hex>` 代替密钥文件。
+
+其他命令：
+
+```text
+node scripts/gen-license.js check <核销码>   # 校验一个码
+node scripts/gen-license.js status           # 查看本机核销状态
+node scripts/gen-license.js clear            # 清空本机核销记录（自测用）
+```
+
+**给用户**：打开软件会弹出激活窗口，粘贴核销码点「核销」即可；之后在
+「设置 → 通用 → 授权」可查看档位与剩余天数，也可核销新的码（续期/升级档位）。
+
+**机制说明**：
+
+- 核销码 = 8 字节载荷（档位 + 序号 + 签发日）+ 6 字节 HMAC 签名，Base32 显示为
+  `XXXXX-XXXXX-XXXXX-XXXXX-XXX`；无密钥无法伪造。
+- 核销后授权与本机绑定（`%APPDATA%\Quanta\data\license.json`），把该文件拷到别的
+  电脑会判定为「授权属于其他设备」；同一个码在本机只能核销一次。
+- 授权记录带签名，直接修改到期时间会判定为「授权文件异常」。
+- 检测到系统时间回拨（超过 1 天）会提示时间异常并要求校正。
+
+**已知限制（离线方案的固有代价）**：没有服务器，因此无法做到「一码一机、不可复制」——
+同一码在另一台机器上仍可核销。若要做到强绑定与一码一机，需要加一个联网校验服务。
+
+**自测/调试**：卖家自己调试时可临时关闭校验——在
+`%APPDATA%\Quanta\data\config.json` 中设置 `"license": { "enforce": false }`，
+界面不提供该开关，避免终端用户自行关闭。
+
 ## 打包分发
 
 ```text

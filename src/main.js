@@ -14,7 +14,10 @@ app.setPath('userData', userDataDir);
 
 // 必须在 require('./server') 之前设置：config.js 会在加载时读取数据目录，
 // 打包版要写入系统用户目录而不是只读的 app.asar。
-process.env.TOKEN_DATA_DIR = path.join(userDataDir, 'data');
+// 允许外部显式指定（测试/多环境隔离），例如 $env:TOKEN_DATA_DIR='D:\tmp\q'
+if (!process.env.TOKEN_DATA_DIR) {
+  process.env.TOKEN_DATA_DIR = path.join(userDataDir, 'data');
+}
 
 // 一次性迁移旧版数据（仅当新目录不存在且旧目录存在时）
 try {
@@ -322,6 +325,13 @@ function registerIpc() {
     pushState();
     return r;
   });
+  // ---- 本地核销码授权 ----
+  ipcMain.handle('license:status', () => server.licenseStatus());
+  ipcMain.handle('license:activate', (_e, code) => {
+    const r = server.activateLicense(code);
+    pushState();
+    return r;
+  });
   // ---- 用户档案 ----
   ipcMain.handle('profile:list', () => server.snapshot().profiles);
   ipcMain.handle('profile:create', (_e, data) => {
@@ -430,7 +440,8 @@ function registerIpc() {
   });
 }
 
-const gotLock = app.requestSingleInstanceLock();
+// QUANTA_ALLOW_MULTI=1 时跳过单实例锁（便于开发调试与隔离测试同时运行）
+const gotLock = process.env.QUANTA_ALLOW_MULTI === '1' ? true : app.requestSingleInstanceLock();
 if (!gotLock) {
   app.quit();
 } else {

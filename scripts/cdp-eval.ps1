@@ -1,5 +1,6 @@
 $ErrorActionPreference = 'Stop'
-$targets = Invoke-RestMethod 'http://127.0.0.1:9222/json' -TimeoutSec 5
+$port = if ($args.Count -gt 1 -and $args[1]) { $args[1] } else { '9222' }
+$targets = Invoke-RestMethod "http://127.0.0.1:$port/json" -TimeoutSec 5
 $dash = $targets | Where-Object { $_.url -like '*dashboard.html*' } | Select-Object -First 1
 if (-not $dash) { throw 'dashboard target not found' }
 
